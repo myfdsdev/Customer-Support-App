@@ -206,22 +206,44 @@ const identify = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /api/support/:productSlug/conversation — resume an in-flight chat. */
+/**
+ * GET /api/support/:productSlug/conversation?mode=ai|human
+ * Resumes the thread for the mode the customer is actually looking at.
+ */
 const getConversation = asyncHandler(async (req, res) => {
   const product = req.product;
   const customerId = req.supportCustomerId;
+  const mode = req.query.mode === 'human' ? 'human' : 'ai';
 
-  const conversation = await Conversation.findOne({
+  const open = await Conversation.find({
     customerId,
     productId: product._id,
     status: { $in: OPEN_STATUSES },
   })
     .sort({ lastMessageAt: -1 })
+    .limit(10)
     .populate('assignedAgentId', 'name avatar title isOnline')
     .lean();
 
+  const humanConversation = open.find((c) => c.channel === 'human') || null;
+  const aiConversation = open.find((c) => c.channel === 'ai') || null;
+
+  const conversation = mode === 'human' ? humanConversation || aiConversation : aiConversation;
+  // Surfaced so the UI can tell the customer they also have a chat open in the
+  // other mode, rather than leaving them to wonder where it went.
+  const other = mode === 'ai' ? humanConversation : aiConversation;
+
   if (!conversation) {
-    return res.json({ success: true, data: { conversation: null, messages: [] } });
+    return res.json({
+      success: true,
+      data: {
+        conversation: null,
+        messages: [],
+        otherOpen: other
+          ? { _id: String(other._id), channel: other.channel, status: other.status }
+          : null,
+      },
+    });
   }
 
   const messages = await Message.find({ conversationId: conversation._id, isInternal: false })
@@ -242,6 +264,7 @@ const getConversation = asyncHandler(async (req, res) => {
         createdAt: conversation.createdAt,
       },
       messages: messages.map((m) => support.serializeMessage(m)),
+      otherOpen: other ? { _id: String(other._id), channel: other.channel, status: other.status } : null,
     },
   });
 });
@@ -261,17 +284,24 @@ const chat = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(req.supportCustomerId);
   if (!customer) throw ApiError.notFound('Customer session is no longer valid');
 
+  // The UI route decides the mode: /chat asks the assistant, /live-support asks
+  // the team. Anything else defaults to AI.
+  const mode = req.body.mode === 'human' ? 'human' : 'ai';
+
   const { conversation, created } = await support.getOrCreateConversation({
     customerId: customer._id,
     productId: product._id,
     sessionId: req.supportSession._id,
+    mode,
   });
 
   if (created) {
     emitter.toAgents('conversation:new', support.serializeConversationLite(conversation));
   }
 
-  // Already with a human: deliver, do not answer.
+  // Only deliver straight to the team when this conversation really is a human
+  // one. With mode-aware resolution an AI request can no longer land here just
+  // because the customer talked to an agent at some point in the past.
   if (conversation.channel === 'human') {
     const message = await support.addMessage({
       conversation,
@@ -315,10 +345,13 @@ const handoff = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(req.supportCustomerId);
   if (!customer) throw ApiError.notFound('Customer session is no longer valid');
 
+  // 'human' so an existing queued/assigned conversation is resumed rather than
+  // a second one being opened for the same person.
   const { conversation } = await support.getOrCreateConversation({
     customerId: customer._id,
     productId: product._id,
     sessionId: req.supportSession._id,
+    mode: 'human',
   });
 
   if (conversation.channel === 'human' && conversation.handoffRequested) {
@@ -348,9 +381,11 @@ const feedback = asyncHandler(async (req, res) => {
   const product = req.product;
   const helpful = Boolean(req.body.helpful);
 
+  // Feedback is only ever offered on an AI answer, so it targets the AI thread.
   const conversation = await Conversation.findOne({
     customerId: req.supportCustomerId,
     productId: product._id,
+    channel: 'ai',
     status: { $in: OPEN_STATUSES },
   }).sort({ lastMessageAt: -1 });
 
@@ -522,6 +557,7 @@ const uploadAttachment = asyncHandler(async (req, res) => {
     customerId: customer._id,
     productId: product._id,
     sessionId: req.supportSession._id,
+    mode: req.body.mode === 'human' ? 'human' : 'ai',
   });
 
   const isImage = req.file.mimetype.startsWith('image/');

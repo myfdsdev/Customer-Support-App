@@ -11,7 +11,9 @@ const { normalize } = require('../../utils/text');
  * request into a generic question).
  */
 const RULES = [
-  { intent: INTENTS.HUMAN_REQUEST, priority: PRIORITY.HIGH, patterns: ['talk to support', 'talk to a human', 'speak to someone', 'real person', 'human agent', 'live agent', 'customer service rep', 'contact support', 'talk to agent'] },
+  // Populated from HUMAN_PHRASES below so the intent and the wantsHuman flag
+  // can never disagree about what counts as asking for a person.
+  { intent: INTENTS.HUMAN_REQUEST, priority: PRIORITY.HIGH, patterns: [] },
   { intent: INTENTS.REFUND, priority: PRIORITY.HIGH, patterns: ['refund', 'money back', 'chargeback', 'reimburse'] },
   { intent: INTENTS.PAYMENT_ISSUE, priority: PRIORITY.HIGH, patterns: ['payment failed', 'charged twice', 'double charge', 'duplicate charge', 'paid but', 'payment not', 'card declined', 'transaction failed', 'not upgraded', 'didnt receive credits', 'credits not received'] },
   { intent: INTENTS.SUBSCRIPTION, priority: PRIORITY.HIGH, patterns: ['cancel subscription', 'subscription', 'renew', 'downgrade plan', 'upgrade plan', 'billing cycle'] },
@@ -43,12 +45,19 @@ const HUMAN_PHRASES = [
   'talk to support', 'talk to a support', 'talk to the support', 'talk to your support',
   'talk to a human', 'talk to human', 'talk to someone', 'talk to a person', 'talk to an agent',
   'talk to agent', 'speak to someone', 'speak to a human', 'speak to an agent', 'speak to a person',
-  'speak with someone', 'chat with a human', 'chat with an agent', 'chat with someone',
+  'speak with someone', 'speak with a human', 'chat with a human', 'chat with an agent', 'chat with someone',
   'real person', 'real human', 'human agent', 'human support', 'live agent', 'live person',
-  'customer service rep', 'support representative', 'contact support', 'contact a human',
-  'connect me to support', 'connect me with support', 'connect me to an agent', 'get me a human',
-  'i want a human', 'i need a human', 'is anyone there', 'can i speak to',
+  'live support', 'live chat with', 'customer service rep', 'support representative',
+  'contact support', 'contact a human', 'contact the team',
+  'connect me to support', 'connect me with support', 'connect me to an agent',
+  'connect me to a human', 'connect me with a human', 'connect me with an agent',
+  'get me a human', 'get me an agent', 'transfer me',
+  'i want a human', 'i need a human', 'i want a person', 'i need a person',
+  'i want to speak', 'i want to talk to', 'is anyone there', 'can i speak to', 'can i talk to',
 ];
+
+// The rule table above is seeded from this list at load time.
+RULES.find((r) => r.intent === INTENTS.HUMAN_REQUEST).patterns = HUMAN_PHRASES;
 
 function wantsHuman(normalizedQuery, intent) {
   if (intent === INTENTS.HUMAN_REQUEST) return true;

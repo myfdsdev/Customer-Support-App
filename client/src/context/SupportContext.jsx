@@ -58,6 +58,17 @@ export function SupportProvider({ children }) {
   const product = home?.product || null;
   conversationIdRef.current = conversation?._id || null;
 
+  /**
+   * The support mode the customer has chosen, taken from the route.
+   * /live-support means "I want a person"; everything else is the assistant.
+   * The server resolves a different conversation per mode, so opening
+   * "Ask AI Assistant" after a past handoff reaches the AI again instead of
+   * silently posting into the support queue.
+   */
+  const mode = location.pathname.endsWith('/live-support') ? 'human' : 'ai';
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
   /* --- bootstrap: product + session ------------------------------------ */
   useEffect(() => {
     let cancelled = false;
@@ -183,12 +194,15 @@ export function SupportProvider({ children }) {
   }, [location.pathname, session?.supportToken]);
 
   /* --- conversation ----------------------------------------------------- */
+  const [otherOpen, setOtherOpen] = useState(null);
+
   const loadConversation = useCallback(async () => {
     if (!getSupportToken()) return;
     try {
-      const data = await supportService.conversation(productSlug);
+      const data = await supportService.conversation(productSlug, modeRef.current);
       setConversation(data.conversation);
       setMessages(data.messages || []);
+      setOtherOpen(data.otherOpen || null);
       if (data.conversation?._id && socketRef.current?.connected) {
         socketRef.current.emit('conversation:join', { conversationId: data.conversation._id });
       }
@@ -197,9 +211,11 @@ export function SupportProvider({ children }) {
     }
   }, [productSlug]);
 
+  // Reload when the session arrives and whenever the customer switches between
+  // the assistant and live support, so each route shows its own thread.
   useEffect(() => {
     if (session?.supportToken) loadConversation();
-  }, [session?.supportToken, loadConversation]);
+  }, [session?.supportToken, loadConversation, mode]);
 
   /**
    * Delivers one customer message.
@@ -218,6 +234,7 @@ export function SupportProvider({ children }) {
         conversationId: conversationIdRef.current,
         content: optimistic.content,
         clientMessageId: optimistic.clientMessageId,
+        mode: modeRef.current,
       };
 
       // Socket needs an existing conversation to target; the very first message
@@ -235,7 +252,12 @@ export function SupportProvider({ children }) {
         }
       }
 
-      const data = await supportService.chat(productSlug, optimistic.content, optimistic.clientMessageId);
+      const data = await supportService.chat(
+        productSlug,
+        optimistic.content,
+        optimistic.clientMessageId,
+        modeRef.current
+      );
 
       setMessages((prev) => {
         let next = prev;
@@ -354,6 +376,10 @@ export function SupportProvider({ children }) {
       aiThinking,
       agentTyping,
       connected,
+      mode,
+      otherOpen,
+      // Reflects the conversation actually on screen, not the route, so the
+      // header can never claim "AI Assistant" while an agent is replying.
       isHumanMode: conversation?.channel === 'human',
       sendMessage,
       retryMessage,
@@ -366,8 +392,8 @@ export function SupportProvider({ children }) {
     }),
     [
       productSlug, product, home, loading, error, session, customer, conversation, messages,
-      aiThinking, agentTyping, connected, sendMessage, retryMessage, requestHuman, sendFeedback,
-      identify, uploadFile, emitTyping, loadConversation,
+      aiThinking, agentTyping, connected, mode, otherOpen, sendMessage, retryMessage, requestHuman,
+      sendFeedback, identify, uploadFile, emitTyping, loadConversation,
     ]
   );
 

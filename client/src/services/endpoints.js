@@ -135,9 +135,10 @@ export const supportService = {
   heartbeat: (slug, payload) => supportApi.post(`/support/${slug}/session/heartbeat`, payload).then(unwrap),
   endSession: (slug) => supportApi.post(`/support/${slug}/session/end`).then(unwrap),
   identify: (slug, payload) => supportApi.post(`/support/${slug}/identify`, payload).then(unwrap),
-  conversation: (slug) => supportApi.get(`/support/${slug}/conversation`).then(unwrap),
-  chat: (slug, message, clientMessageId) =>
-    supportApi.post(`/support/${slug}/chat`, { message, clientMessageId }).then(unwrap),
+  conversation: (slug, mode = 'ai') =>
+    supportApi.get(`/support/${slug}/conversation`, { params: { mode } }).then(unwrap),
+  chat: (slug, message, clientMessageId, mode = 'ai') =>
+    supportApi.post(`/support/${slug}/chat`, { message, clientMessageId, mode }).then(unwrap),
   handoff: (slug, reason) => supportApi.post(`/support/${slug}/handoff`, { reason }).then(unwrap),
   feedback: (slug, helpful) => supportApi.post(`/support/${slug}/feedback`, { helpful }).then(unwrap),
   training: (slug, params) => supportApi.get(`/support/${slug}/training`, { params }).then(unwrap),

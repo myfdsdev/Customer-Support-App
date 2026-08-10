@@ -8,6 +8,7 @@ const marketing = require('../marketing');
 const { getVerifiedAccountData } = require('./verifiedData');
 const conversationService = require('./conversationService');
 const emitter = require('../socket/emitter');
+const { truncate } = require('../../utils/text');
 
 const {
   Conversation,
@@ -72,7 +73,10 @@ async function handleCustomerMessage({
   // 2. Classify.
   const classification = await gemini.classifyIntent(content, { history: history.slice(0, -1) });
 
-  // 3. Explicit request for a person short-circuits the whole AI path.
+  // 3. An EXPLICIT request for a person is the only thing in this function
+  //    that may move the conversation to a human. Low confidence, missing
+  //    knowledge and refusals never do — they offer the customer a button and
+  //    leave the conversation in AI mode.
   if (classification.wantsHuman || classification.intent === INTENTS.HUMAN_REQUEST) {
     const handoff = await requestHumanHandoff({
       product,
@@ -213,11 +217,32 @@ async function handleCustomerMessage({
     conversationId: conversation._id,
     label: content.slice(0, 200),
     value: result.confidence,
-    meta: { intent: classification.intent, strategy, embedded, reason: result.reason },
+    meta: { intent: classification.intent, scope: result.scope, strategy, embedded, reason: result.reason },
   });
 
-  logger.debug(
-    `AI turn [${product.slug}] intent=${classification.intent} answered=${result.answered} strategy=${strategy} chunks=${knowledge.length}`
+  // Structured trace for debugging a bad answer. Deliberately contains no
+  // API keys, no payment details and no verified account values — only the
+  // routing decisions and retrieval shape.
+  logger.info(
+    [
+      'AI SUPPORT:',
+      `  Product:          ${product.name} (${product.slug})`,
+      `  Question:         ${truncate(content, 160)}`,
+      `  Intent:           ${classification.intent} (${classification.source})`,
+      `  Question type:    ${result.scope || 'informational'}`,
+      `  Gemini:           ${gemini.isEnabled() ? `enabled (${gemini.modelName()})` : 'disabled — keyword/extractive'}`,
+      `  Retrieval:        ${strategy}${embedded ? ' (semantic)' : ' (lexical)'}`,
+      `  Knowledge chunks: ${knowledge.length}`,
+      `  Top score:        ${knowledge.length ? Number(knowledge[0].score || 0).toFixed(3) : 'n/a'}`,
+      `  Verified data:    ${Object.keys(verifiedData || {}).length ? 'available' : 'none'}`,
+      `  Answered:         ${result.answered}`,
+      `  Refusal reason:   ${result.answered ? 'n/a' : result.reason}`,
+      `  Video attached:   ${video ? video.title : 'none'}`,
+      `  Escalation offer: ${aiMeta.escalate}`,
+      `  Human requested:  false`,
+      `  Channel:          ${conversation.channel}`,
+      `  Latency:          ${result.latencyMs}ms`,
+    ].join('\n')
   );
 
   return {
@@ -231,6 +256,9 @@ async function handleCustomerMessage({
     video: video || null,
     recommendation,
     sources: aiMeta.sources,
+    scope: result.scope,
+    // Stays 'ai' unless the customer explicitly asks for a person.
+    channel: conversation.channel,
     retrieval: { strategy, embedded, chunks: knowledge.length },
   };
 }

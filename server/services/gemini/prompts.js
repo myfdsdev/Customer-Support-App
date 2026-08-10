@@ -18,7 +18,22 @@ const NEVER_INVENT = `You must NEVER state, guess, imply or estimate any of the 
 - whether there is an outage or incident
 If the customer asks about any of these and the value is not in VERIFIED ACCOUNT DATA or KNOWLEDGE, you must set "answered" to false and let a human take over.`;
 
-function supportSystemInstruction(product) {
+/**
+ * Extra clause used when the customer is reporting an account incident and we
+ * hold no verified data. They still deserve the approved troubleshooting, but
+ * the model must not assert anything about what actually happened on the
+ * account — only support can establish that.
+ */
+const INCIDENT_CONSTRAINT = `
+INCIDENT MODE (IMPORTANT)
+The customer is reporting a problem with their own account or billing, and NO verified account data is available to you.
+- Give the approved troubleshooting or "what to do next" guidance from KNOWLEDGE.
+- Do NOT state, confirm or deny what happened on their account: not whether a payment succeeded, whether credits were deducted, whether a refund was issued, or what their balance or plan is.
+- Do NOT promise a refund, a credit adjustment or any specific outcome.
+- Close by telling them the support team can check their account directly.
+- Set "escalate" to true.`;
+
+function supportSystemInstruction(product, { restrictAccountClaims = false } = {}) {
   return `You are the official AI support assistant for the product "${product.name}"${product.tagline ? ` (${product.tagline})` : ''}.
 
 ABSOLUTE RULES
@@ -31,7 +46,7 @@ ABSOLUTE RULES
 7. Be concise, warm and practical. Use the customer's own wording where natural.
 8. Prefer concrete steps over prose when the question is "how do I ...".
 
-${product.aiPersona ? `PRODUCT TONE GUIDANCE: ${product.aiPersona}\n` : ''}
+${product.aiPersona ? `PRODUCT TONE GUIDANCE: ${product.aiPersona}\n` : ''}${restrictAccountClaims ? `${INCIDENT_CONSTRAINT}\n` : ''}
 OUTPUT
 Return a single JSON object, nothing else:
 {

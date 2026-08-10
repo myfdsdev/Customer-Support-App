@@ -22,23 +22,53 @@ const emitter = require('../socket/emitter');
  * socket behave identically (same counters, same broadcasts).
  */
 
-/** Finds the customer's live conversation for a product, or starts one. */
-async function getOrCreateConversation({ customerId, productId, sessionId }) {
-  let conversation = await Conversation.findOne({
+/**
+ * Finds the customer's live conversation for a product, or starts one.
+ *
+ * `mode` is the support mode the customer has actually chosen in the UI:
+ * 'ai' for /chat, 'human' for /live-support. It matters because the two must
+ * not collide. Without it, a customer who once clicked "Talk to Support" was
+ * permanently stuck: every later visit to "Ask AI Assistant" reused that
+ * human conversation and their question went silently to the queue instead of
+ * to the assistant.
+ *
+ * Resolution:
+ *   mode 'ai'    → reuse an open AI conversation; if the only open one is with
+ *                  a human, leave it completely alone and start a fresh AI
+ *                  conversation alongside it.
+ *   mode 'human' → prefer an open human conversation (resume the queue or the
+ *                  agent), otherwise take the open AI one so a handoff carries
+ *                  its history across.
+ */
+async function getOrCreateConversation({ customerId, productId, sessionId, mode = 'ai' }) {
+  const open = await Conversation.find({
     customerId,
     productId,
     status: { $in: OPEN_STATUSES },
-  }).sort({ lastMessageAt: -1 });
+  })
+    .sort({ lastMessageAt: -1 })
+    .limit(10);
+
+  const humanConversation = open.find((c) => c.channel === 'human');
+  const aiConversation = open.find((c) => c.channel === 'ai');
+
+  const conversation =
+    mode === 'human' ? humanConversation || aiConversation || null : aiConversation || null;
 
   if (conversation) {
     if (sessionId && String(conversation.sessionId) !== String(sessionId)) {
       conversation.sessionId = sessionId;
       await conversation.save();
     }
-    return { conversation, created: false };
+    return { conversation, created: false, otherOpen: mode === 'ai' ? humanConversation || null : aiConversation || null };
   }
 
-  conversation = await Conversation.create({
+  const created = await createConversation({ customerId, productId, sessionId });
+  return { ...created, otherOpen: mode === 'ai' ? humanConversation || null : aiConversation || null };
+}
+
+async function createConversation({ customerId, productId, sessionId }) {
+  const conversation = await Conversation.create({
     customerId,
     productId,
     sessionId: sessionId || null,

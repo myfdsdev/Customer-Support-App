@@ -21,7 +21,7 @@ const TOPIC_PROMPTS = {
  */
 export default function ChatPage({ initialMode = 'ai' }) {
   const {
-    product, productSlug, messages, conversation, aiThinking, agentTyping,
+    product, productSlug, messages, conversation, aiThinking, agentTyping, otherOpen,
     sendMessage, retryMessage, requestHuman, sendFeedback, identify, uploadFile, emitTyping, customer,
   } = useSupport();
 
@@ -179,6 +179,35 @@ export default function ChatPage({ initialMode = 'ai' }) {
           </Button>
         ) : null}
       </div>
+
+      {/* A chat open in the other mode — say so plainly rather than leaving the
+          customer wondering where their conversation went. */}
+      {otherOpen && (
+        <div className="flex items-center gap-2 border-b border-ink-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+          <Headphones className="h-3.5 w-3.5 shrink-0" />
+          {otherOpen.channel === 'human' ? (
+            <>
+              <span className="min-w-0 flex-1">You also have a chat open with the support team.</span>
+              <button
+                onClick={() => navigate(`/support/${productSlug}/live-support`)}
+                className="shrink-0 font-semibold underline hover:text-amber-950"
+              >
+                Go to it
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="min-w-0 flex-1">You have an earlier conversation with the AI assistant.</span>
+              <button
+                onClick={() => navigate(`/support/${productSlug}/chat`)}
+                className="shrink-0 font-semibold underline hover:text-amber-950"
+              >
+                Go to it
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Thread */}
       <div className="flex-1 space-y-4 overflow-y-auto scroll-thin bg-ink-50 p-4">
