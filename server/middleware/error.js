@@ -4,8 +4,29 @@ const env = require('../config/env');
 const logger = require('../utils/logger');
 const ApiError = require('../utils/ApiError');
 
+/** Top-level API segments, used to spot a request that lost its /api prefix. */
+const API_SEGMENTS = [
+  'auth', 'support', 'products', 'knowledge', 'training', 'conversations',
+  'customers', 'tickets', 'announcements', 'recommendations', 'dashboard', 'analytics', 'health',
+];
+
 function notFound(req, _res, next) {
-  next(ApiError.notFound(`Route not found: ${req.method} ${req.originalUrl}`));
+  const path = req.path || req.originalUrl || '';
+  const firstSegment = path.split('?')[0].split('/').filter(Boolean)[0];
+
+  // A frontend built with VITE_API_URL pointing at the bare service origin
+  // sends /auth/login instead of /api/auth/login. Say so explicitly rather
+  // than leaving a generic 404 to be reverse-engineered from the console.
+  if (API_SEGMENTS.includes(firstSegment)) {
+    return next(
+      ApiError.notFound(
+        `Route not found: ${req.method} ${req.originalUrl}. The API is mounted under /api — did you mean ${req.method} /api${path}? ` +
+          'If this came from the web app, set VITE_API_URL to the API origin and rebuild the frontend.'
+      )
+    );
+  }
+
+  return next(ApiError.notFound(`Route not found: ${req.method} ${req.originalUrl}`));
 }
 
 // eslint-disable-next-line no-unused-vars

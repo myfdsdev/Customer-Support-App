@@ -71,6 +71,44 @@ Boots an in-process MongoDB, seeds it, and starts the API. Everything is discard
 
 ---
 
+## Deploying
+
+Two layouts work. The difference is only whether the browser talks to one host
+or two.
+
+### One service (API serves the built frontend)
+
+`npm run build` then `npm start`. Express serves `client/dist` and mounts the
+API under `/api` on the same origin. Leave `VITE_API_URL` empty.
+
+### Two services (static frontend + separate API)
+
+Set **one** variable on the frontend build and one on the API:
+
+| Service | Variable | Value |
+|---|---|---|
+| Frontend (static) | `VITE_API_URL` | `https://your-api.onrender.com` |
+| API (web service) | `CLIENT_URL` | `https://your-frontend.onrender.com` |
+
+`VITE_API_URL` may be given with or without the trailing `/api` — both resolve
+to the same place. The websocket origin is derived from it, so `VITE_SOCKET_URL`
+only matters if Socket.io lives on a third host.
+
+`CLIENT_URL` accepts a comma-separated list, and it drives both CORS and the
+Socket.io origin check. If it does not include your frontend origin, requests
+are rejected before they reach a route.
+
+> **Vite inlines `VITE_*` at build time.** Changing them requires a rebuild and
+> redeploy — restarting the service will not pick them up.
+
+**`Route not found: POST /auth/login`** means the frontend was built without the
+`/api` prefix resolving correctly — set `VITE_API_URL` to the API origin and
+rebuild. The server's 404 now says this explicitly.
+
+Also remember to put a database name on the Atlas URI
+(`...mongodb.net/support_platform`), or everything is written to a database
+called `test`.
+
 ## Running without Gemini
 
 The platform is designed to degrade rather than break. With no `GEMINI_API_KEY`:

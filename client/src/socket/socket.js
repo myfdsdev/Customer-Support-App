@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import { resolveSocketUrl } from '../services/api';
 
 /**
  * One socket per audience. The token decides everything server-side, so the
@@ -6,7 +7,16 @@ import { io } from 'socket.io-client';
  * that matter for authorization.
  */
 
-const URL = import.meta.env.VITE_SOCKET_URL || undefined; // same origin via the Vite proxy
+/**
+ * Where to open the websocket.
+ *
+ * Derived from VITE_API_URL when VITE_SOCKET_URL is not set, because on a split
+ * deployment (static frontend + separate API service) "same origin" points at
+ * the static host, where nothing is listening — realtime would fail silently
+ * while REST kept working. `undefined` means same origin, which is correct in
+ * development behind the Vite proxy and for single-service deployments.
+ */
+const URL = resolveSocketUrl(import.meta.env.VITE_SOCKET_URL, import.meta.env.VITE_API_URL);
 
 const sockets = { agent: null, customer: null };
 

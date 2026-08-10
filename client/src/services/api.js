@@ -11,7 +11,51 @@ import axios from 'axios';
  * and vice versa.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+/**
+ * Resolves the API base URL from VITE_API_URL.
+ *
+ * Every route on this server is mounted under `/api`, but the natural thing to
+ * put in a hosting dashboard is the bare service origin
+ * ("https://my-api.onrender.com"). That produced POST /auth/login and a 404
+ * from the server's own not-found handler. Rather than depend on everyone
+ * remembering the suffix, both forms are accepted and normalised here.
+ *
+ *   ""                              -> "/api"          (same origin)
+ *   "https://api.example.com"       -> "https://api.example.com/api"
+ *   "https://api.example.com/"      -> "https://api.example.com/api"
+ *   "https://api.example.com/api"   -> unchanged
+ *   "https://api.example.com/api/"  -> "https://api.example.com/api"
+ */
+export function resolveApiBase(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '/api';
+
+  const withoutTrailingSlash = value.replace(/\/+$/, '');
+  if (!withoutTrailingSlash) return '/api';
+
+  // Already points at an /api mount (or a custom one) — leave it alone.
+  if (/\/api(\/.*)?$/i.test(withoutTrailingSlash)) return withoutTrailingSlash;
+
+  return `${withoutTrailingSlash}/api`;
+}
+
+/** The origin Socket.io should connect to — the API base without its /api path. */
+export function resolveSocketUrl(rawSocket, rawApi) {
+  const explicit = String(rawSocket || '').trim().replace(/\/+$/, '');
+  if (explicit) return explicit.replace(/\/api$/i, '');
+
+  const apiBase = resolveApiBase(rawApi);
+  // A relative base means the API is same-origin, and so is the socket.
+  if (apiBase.startsWith('/')) return undefined;
+
+  try {
+    return new URL(apiBase).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+const BASE_URL = resolveApiBase(import.meta.env.VITE_API_URL);
 
 export const TOKEN_KEY = 'support_platform_token';
 export const SUPPORT_TOKEN_KEY = 'support_session_token';
