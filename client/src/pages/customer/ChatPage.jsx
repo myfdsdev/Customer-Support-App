@@ -21,7 +21,7 @@ const TOPIC_PROMPTS = {
  */
 export default function ChatPage({ initialMode = 'ai' }) {
   const {
-    product, productSlug, messages, conversation, aiThinking, agentTyping, otherOpen,
+    product, productSlug, messages, conversation, aiThinking, agentTyping, otherOpen, loadedMode,
     sendMessage, retryMessage, requestHuman, sendFeedback, identify, uploadFile, emitTyping, customer,
   } = useSupport();
 
@@ -46,13 +46,16 @@ export default function ChatPage({ initialMode = 'ai' }) {
   }, [messages.length, aiThinking, agentTyping]);
 
   // /live-support means "I want a person" — start the handoff on arrival.
+  // Gated on loadedMode so we act on the human-mode thread, not on an AI
+  // conversation still in state from the route we just left.
   useEffect(() => {
     if (initialMode !== 'human' || prefilled.current) return;
+    if (loadedMode !== 'human') return;
     if (!conversation || conversation.channel === 'human') return;
     prefilled.current = true;
     escalate('Customer opened live support');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialMode, conversation?._id]);
+  }, [initialMode, loadedMode, conversation?._id, conversation?.channel]);
 
   const starters = useMemo(() => {
     const topic = params.get('topic');
@@ -89,6 +92,12 @@ export default function ChatPage({ initialMode = 'ai' }) {
       // Ask for contact details only at the moment they become useful.
       if (!customer?.email && !customer?.name) setAskIdentity(true);
       toast.success('Connecting you with our support team');
+      // Move to the live-support route so the URL matches who they are now
+      // talking to, and so a refresh resumes the human thread rather than
+      // opening a fresh AI one.
+      if (initialMode !== 'human') {
+        navigate(`/support/${productSlug}/live-support`, { replace: true });
+      }
     } catch (err) {
       toast.error(toMessage(err));
     } finally {

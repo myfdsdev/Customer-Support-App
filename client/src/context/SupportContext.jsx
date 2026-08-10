@@ -195,14 +195,19 @@ export function SupportProvider({ children }) {
 
   /* --- conversation ----------------------------------------------------- */
   const [otherOpen, setOtherOpen] = useState(null);
+  // Which mode the conversation currently in state was loaded for. Lets
+  // consumers avoid acting on a thread that belongs to the previous route.
+  const [loadedMode, setLoadedMode] = useState(null);
 
   const loadConversation = useCallback(async () => {
     if (!getSupportToken()) return;
+    const requestedMode = modeRef.current;
     try {
-      const data = await supportService.conversation(productSlug, modeRef.current);
+      const data = await supportService.conversation(productSlug, requestedMode);
       setConversation(data.conversation);
       setMessages(data.messages || []);
       setOtherOpen(data.otherOpen || null);
+      setLoadedMode(requestedMode);
       if (data.conversation?._id && socketRef.current?.connected) {
         socketRef.current.emit('conversation:join', { conversationId: data.conversation._id });
       }
@@ -322,13 +327,38 @@ export function SupportProvider({ children }) {
     [deliverMessage, conversation]
   );
 
+  /**
+   * Escalates the current thread to the support team.
+   *
+   * The conversation is switched locally instead of refetching, because at
+   * this moment the route is still /chat (mode 'ai') and an AI-mode reload
+   * would return an empty thread — the conversation has just become a human
+   * one. The caller navigates to /live-support afterwards, which reloads in
+   * the right mode.
+   */
   const requestHuman = useCallback(
     async (reason) => {
       const data = await supportService.handoff(productSlug, reason);
-      await loadConversation();
+
+      setConversation((c) => ({
+        ...(c || {}),
+        _id: c?._id || data.conversationId,
+        channel: 'human',
+        status: 'unassigned',
+        handoffRequested: true,
+      }));
+
+      setMessages((prev) => {
+        let next = prev;
+        if (data.systemMessage) next = upsertMessage(next, data.systemMessage);
+        if (data.noticeMessage) next = upsertMessage(next, data.noticeMessage);
+        return next;
+      });
+      setOtherOpen(null);
+
       return data;
     },
-    [productSlug, loadConversation]
+    [productSlug]
   );
 
   const sendFeedback = useCallback(
@@ -377,6 +407,7 @@ export function SupportProvider({ children }) {
       agentTyping,
       connected,
       mode,
+      loadedMode,
       otherOpen,
       // Reflects the conversation actually on screen, not the route, so the
       // header can never claim "AI Assistant" while an agent is replying.
@@ -392,8 +423,8 @@ export function SupportProvider({ children }) {
     }),
     [
       productSlug, product, home, loading, error, session, customer, conversation, messages,
-      aiThinking, agentTyping, connected, mode, otherOpen, sendMessage, retryMessage, requestHuman,
-      sendFeedback, identify, uploadFile, emitTyping, loadConversation,
+      aiThinking, agentTyping, connected, mode, loadedMode, otherOpen, sendMessage, retryMessage,
+      requestHuman, sendFeedback, identify, uploadFile, emitTyping, loadConversation,
     ]
   );
 

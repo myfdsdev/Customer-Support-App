@@ -88,6 +88,58 @@ Add the key later and run `npm run reindex --prefix server` to backfill embeddin
 
 ---
 
+## Support modes: AI and human
+
+The route decides who the customer is talking to, and the server resolves a
+different conversation per mode:
+
+| Route | Mode | Resolves to |
+|---|---|---|
+| `/support/:slug/chat` | `ai` | the open AI conversation, or a new one |
+| `/support/:slug/live-support` | `human` | the open human conversation, else the AI one (which the handoff then carries over) |
+
+A past handoff never locks the customer out of the assistant. If they open
+"Ask AI Assistant" while an agent is working their support chat, the AI answers
+in a separate conversation and the agent's thread is left completely untouched —
+the AI question does not appear in it. Each surface labels itself ("AI
+Assistant" vs "Support team"), and whichever one you're on tells you if the
+other has an open chat.
+
+Escalating from the AI page moves the customer to `/live-support`, so the URL
+always matches who is answering.
+
+## When the AI hands off
+
+Only three things move a conversation to a human:
+
+1. The customer says so ("talk to a human", "connect me to an agent", "live support"…)
+2. The customer clicks **Talk to Support**
+3. An agent picks it up from the inbox
+
+Low confidence, thin retrieval and refusals do **not**. When the AI cannot
+answer it says so and shows a *Talk to Support* button — and the conversation
+stays in AI mode until the customer chooses otherwise.
+
+## Informational vs account-specific questions
+
+Whether a question needs verified data is decided by the shape of the question,
+not its topic — `services/gemini/questionScope.js`.
+
+| Question | Scope | Behaviour |
+|---|---|---|
+| "How do credits work?" | informational | answered from knowledge |
+| "What happens when my credits finish?" | informational | answered from knowledge |
+| "What is the refund policy?" | informational | answered from knowledge |
+| "How can I upgrade my plan?" | informational | answered from knowledge |
+| "How many credits do I have?" | account_value | refuses, offers support |
+| "Did my payment go through?" | account_value | refuses, offers support |
+| "Is my subscription active?" | account_value | refuses, offers support |
+| "My credits were deducted but I got no video" | account_incident | approved troubleshooting, no account claims, offers support |
+
+`account_value` questions never reach the model without verified data. Incident
+reports do reach it, under an explicit ban on asserting what happened on the
+account.
+
 ## The grounding rules
 
 These are enforced server-side, not by prompt wording alone.
