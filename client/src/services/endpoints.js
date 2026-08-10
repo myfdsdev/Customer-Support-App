@@ -58,6 +58,7 @@ export const conversationService = {
   list: (params) => api.get('/conversations', { params }).then((r) => r.data),
   counts: () => api.get('/conversations/counts').then(unwrap),
   get: (id) => api.get(`/conversations/${id}`).then(unwrap),
+  listMessages: (id, params) => api.get(`/conversations/${id}/messages`, { params }).then(unwrap),
   update: (id, payload) => api.patch(`/conversations/${id}`, payload).then(unwrap),
   send: (id, payload) => api.post(`/conversations/${id}/messages`, payload).then(unwrap),
   sendFile: (id, formData) =>
@@ -135,7 +136,8 @@ export const supportService = {
   endSession: (slug) => supportApi.post(`/support/${slug}/session/end`).then(unwrap),
   identify: (slug, payload) => supportApi.post(`/support/${slug}/identify`, payload).then(unwrap),
   conversation: (slug) => supportApi.get(`/support/${slug}/conversation`).then(unwrap),
-  chat: (slug, message) => supportApi.post(`/support/${slug}/chat`, { message }).then(unwrap),
+  chat: (slug, message, clientMessageId) =>
+    supportApi.post(`/support/${slug}/chat`, { message, clientMessageId }).then(unwrap),
   handoff: (slug, reason) => supportApi.post(`/support/${slug}/handoff`, { reason }).then(unwrap),
   feedback: (slug, helpful) => supportApi.post(`/support/${slug}/feedback`, { helpful }).then(unwrap),
   training: (slug, params) => supportApi.get(`/support/${slug}/training`, { params }).then(unwrap),

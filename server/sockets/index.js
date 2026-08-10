@@ -37,13 +37,18 @@ function initSockets(httpServer) {
   io.on('connection', async (socket) => {
     const d = socket.data;
 
-    if (d.kind === 'agent') await onAgentConnected(socket);
-    else await onCustomerConnected(socket);
-
+    // Handlers are registered synchronously, BEFORE any awaited setup.
+    // Socket.io does not buffer events for listeners attached later, so a
+    // client that emits the instant it connects — which is exactly what a
+    // reconnect does — would otherwise have that first event dropped while
+    // the presence writes below were still in flight.
     registerConversationHandlers(socket);
     registerTypingHandlers(socket);
     registerPresenceHandlers(socket);
     registerMessageHandlers(socket);
+
+    if (d.kind === 'agent') await onAgentConnected(socket);
+    else await onCustomerConnected(socket);
 
     socket.on('disconnect', async (reason) => {
       try {
@@ -225,16 +230,18 @@ function registerPresenceHandlers(socket) {
  */
 function registerMessageHandlers(socket) {
   socket.on('message:send', async (payload = {}, ack) => {
+    const clientMessageId = payload.clientMessageId ? String(payload.clientMessageId).slice(0, 64) : null;
     try {
       const { conversationId, content, isInternal } = payload;
       const text = String(content || '').trim();
-      if (!text) return ack?.({ ok: false, error: 'Message cannot be empty' });
-      if (text.length > 4000) return ack?.({ ok: false, error: 'Message is too long' });
+      if (!text) return ack?.({ ok: false, error: 'Message cannot be empty', clientMessageId });
+      if (text.length > 4000) return ack?.({ ok: false, error: 'Message is too long', clientMessageId });
 
       const authorized = await authorizeConversation(socket, conversationId);
-      if (!authorized) return ack?.({ ok: false, error: 'Not allowed' });
+      if (!authorized) return ack?.({ ok: false, error: 'Not allowed', clientMessageId });
 
       const conversation = await Conversation.findById(conversationId);
+      if (!conversation) return ack?.({ ok: false, error: 'Conversation not found', clientMessageId });
 
       if (socket.data.kind === 'agent') {
         if (!conversation.assignedAgentId && !isInternal) {
@@ -256,23 +263,24 @@ function registerMessageHandlers(socket) {
           senderName: socket.data.name,
           content: text,
           isInternal: Boolean(isInternal),
+          clientMessageId,
         });
 
-        if (!isInternal) {
-          await Customer.updateOne(
+        // CRM counters do not affect message correctness, so they must not sit
+        // between the save and the acknowledgement the sender is waiting on.
+        if (!isInternal && !message.$wasDuplicate) {
+          Customer.updateOne(
             { _id: conversation.customerId },
             { $inc: { 'stats.humanInteractions': 1 }, $set: { lastContactAt: new Date() } }
           ).catch(() => null);
         }
 
-        return ack?.({ ok: true, message: support.serializeMessage(message) });
+        return ack?.({ ok: true, clientMessageId, message: support.serializeMessage(message) });
       }
 
       // Customer side.
       const customer = await Customer.findById(socket.data.customerId);
-      if (!customer) return ack?.({ ok: false, error: 'Customer session invalid' });
-
-      const product = await Product.findById(conversation.productId);
+      if (!customer) return ack?.({ ok: false, error: 'Customer session invalid', clientMessageId });
 
       if (conversation.channel === 'human') {
         const message = await support.addMessage({
@@ -281,24 +289,37 @@ function registerMessageHandlers(socket) {
           senderId: customer._id,
           senderName: customer.name || 'Customer',
           content: text,
+          clientMessageId,
         });
-        await Conversation.updateOne(
-          { _id: conversation._id },
-          { $set: { status: CONVERSATION_STATUS.WAITING_TEAM } }
-        );
-        return ack?.({ ok: true, mode: 'human', message: support.serializeMessage(message) });
+        if (!message.$wasDuplicate) {
+          Conversation.updateOne(
+            { _id: conversation._id },
+            { $set: { status: CONVERSATION_STATUS.WAITING_TEAM } }
+          ).catch(() => null);
+        }
+        return ack?.({ ok: true, mode: 'human', clientMessageId, message: support.serializeMessage(message) });
       }
 
-      // AI turn over the socket: acknowledge fast, then stream the answer in.
-      ack?.({ ok: true, mode: 'ai', pending: true });
+      // AI turn. Acknowledge as soon as the customer's own message is durable —
+      // they should not watch a spinner on their own bubble while Gemini thinks.
+      const product = await Product.findById(conversation.productId);
       socket.emit('ai:thinking', { conversationId: String(conversation._id) });
 
-      const result = await support.handleCustomerMessage({ product, conversation, customer, content: text });
+      const result = await support.handleCustomerMessage({
+        product,
+        conversation,
+        customer,
+        content: text,
+        clientMessageId,
+        onCustomerMessage: (saved) =>
+          ack?.({ ok: true, mode: 'ai', clientMessageId, message: support.serializeMessage(saved) }),
+      });
+
       socket.emit('ai:done', { conversationId: String(conversation._id), ...result });
       return undefined;
     } catch (err) {
       logger.error('message:send failed:', err.message);
-      return ack?.({ ok: false, error: 'Could not send message' });
+      return ack?.({ ok: false, error: 'Could not send message', clientMessageId });
     }
   });
 

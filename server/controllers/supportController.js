@@ -254,6 +254,7 @@ const getConversation = asyncHandler(async (req, res) => {
 const chat = asyncHandler(async (req, res) => {
   const product = req.product;
   const content = String(req.body.message || '').trim();
+  const clientMessageId = req.body.clientMessageId ? String(req.body.clientMessageId).slice(0, 64) : null;
   if (!content) throw ApiError.badRequest('Message cannot be empty');
   if (content.length > 4000) throw ApiError.badRequest('Message is too long (max 4000 characters)');
 
@@ -278,8 +279,14 @@ const chat = asyncHandler(async (req, res) => {
       senderId: customer._id,
       senderName: customer.name || 'Customer',
       content,
+      clientMessageId,
     });
-    await Conversation.updateOne({ _id: conversation._id }, { $set: { status: CONVERSATION_STATUS.WAITING_TEAM } });
+    if (!message.$wasDuplicate) {
+      Conversation.updateOne(
+        { _id: conversation._id },
+        { $set: { status: CONVERSATION_STATUS.WAITING_TEAM } }
+      ).catch(() => null);
+    }
     return res.json({
       success: true,
       data: {
@@ -290,7 +297,7 @@ const chat = asyncHandler(async (req, res) => {
     });
   }
 
-  const result = await support.handleCustomerMessage({ product, conversation, customer, content });
+  const result = await support.handleCustomerMessage({ product, conversation, customer, content, clientMessageId });
 
   return res.json({
     success: true,

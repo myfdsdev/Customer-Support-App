@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, Info, Lock, Paperclip, FileText, PlayCircle, AlertTriangle } from 'lucide-react';
+import { Bot, Info, Lock, Paperclip, FileText, PlayCircle, AlertTriangle, Loader2, RotateCw } from 'lucide-react';
 import cn from '../../utils/cn';
 import { clockTime, fileSize, renderInline } from '../../utils/format';
 import { Avatar, Badge } from '../ui';
@@ -11,7 +11,7 @@ import { Avatar, Badge } from '../ui';
  * briefs are shown in full, and AI turns expose their grounding so an agent
  * can tell at a glance whether the assistant actually knew the answer.
  */
-export default function AgentMessage({ message, customerName }) {
+export default function AgentMessage({ message, customerName, onRetry }) {
   const { senderType, content, ai, isInternal, messageType, attachmentUrl } = message;
 
   if (isInternal) {
@@ -130,9 +130,28 @@ export default function AgentMessage({ message, customerName }) {
           </div>
         )}
 
-        <p className={cn('mt-1 text-[11px] text-ink-400', !isCustomer && 'text-right')}>
+        {/* Delivery state: sending → sent → read, or failed with a retry. */}
+        <p className={cn('mt-1 flex items-center gap-1 text-[11px] text-ink-400', !isCustomer && 'justify-end')}>
           {clockTime(message.createdAt)}
-          {!isCustomer && message.readAt && ' · Read'}
+          {!isCustomer && message.pending && (
+            <>
+              · <Loader2 className="h-3 w-3 animate-spin" /> Sending
+            </>
+          )}
+          {!isCustomer && !message.pending && !message.failed && (message.readAt ? ' · Read' : ' · Sent')}
+          {message.failed && (
+            <span className="flex items-center gap-1 text-red-600">
+              · <AlertTriangle className="h-3 w-3" /> {message.error || 'Failed'}
+              {onRetry && (
+                <button
+                  onClick={() => onRetry(message)}
+                  className="ml-0.5 inline-flex items-center gap-0.5 font-medium underline hover:text-red-700"
+                >
+                  <RotateCw className="h-3 w-3" /> Retry
+                </button>
+              )}
+            </span>
+          )}
         </p>
       </div>
     </div>

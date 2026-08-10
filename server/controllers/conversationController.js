@@ -203,7 +203,8 @@ const sendMessage = asyncHandler(async (req, res) => {
   await assertAccess(req, conversation);
 
   const content = String(req.body.content || '').trim();
-  const isInternal = Boolean(req.body.isInternal);
+  const isInternal = Boolean(req.body.isInternal === true || req.body.isInternal === 'true');
+  const clientMessageId = req.body.clientMessageId ? String(req.body.clientMessageId).slice(0, 64) : null;
   if (!content && !req.file) throw ApiError.badRequest('Message cannot be empty');
 
   // Replying to an unclaimed chat claims it — agents should not have to
@@ -232,6 +233,7 @@ const sendMessage = asyncHandler(async (req, res) => {
         : MESSAGE_TYPE.FILE
       : MESSAGE_TYPE.TEXT,
     isInternal,
+    clientMessageId,
     attachment: req.file
       ? {
           url: `/uploads/${req.file.filename}`,
@@ -242,8 +244,9 @@ const sendMessage = asyncHandler(async (req, res) => {
       : null,
   });
 
-  if (!isInternal) {
-    await Customer.updateOne(
+  // Fire-and-forget: a CRM counter must not delay the send response.
+  if (!isInternal && !message.$wasDuplicate) {
+    Customer.updateOne(
       { _id: conversation.customerId },
       { $inc: { 'stats.humanInteractions': 1 }, $set: { lastContactAt: new Date() } }
     ).catch(() => null);

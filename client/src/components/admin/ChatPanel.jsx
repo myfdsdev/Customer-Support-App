@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Send, Paperclip, Lock, Sparkles, UserPlus, ArrowRightLeft, TicketPlus, Clock,
   CheckCircle2, XCircle, RotateCcw, Loader2, ChevronDown, Info, PanelRight,
@@ -6,6 +6,8 @@ import {
 import { conversationService, ticketService } from '../../services/endpoints';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
+import { emitWithAck } from '../../socket/socket';
+import { createOptimisticMessage } from '../../utils/messages';
 import AgentMessage from './AgentMessage';
 import { Badge, Button, PresenceDot, Modal, Select, Textarea, Spinner, Alert } from '../ui';
 import { humanize, timeAgo } from '../../utils/format';
@@ -21,7 +23,15 @@ const STATUS_TONE = {
   closed: 'gray',
 };
 
-export default function ChatPanel({ data, onRefresh, onToggleDetails, agents }) {
+export default function ChatPanel({
+  data,
+  onRefresh,
+  onToggleDetails,
+  agents,
+  onApplyMessage,
+  onFailMessage,
+  onRetryingMessage,
+}) {
   const toast = useToast();
   const { user, socket } = useAuth();
 
@@ -97,39 +107,103 @@ export default function ChatPanel({ data, onRefresh, onToggleDetails, agents }) 
     typingTimer.current = setTimeout(() => emitTyping(false), 1500);
   };
 
+  /**
+   * Delivers one message. Socket first (with acknowledgement), REST only when
+   * the socket is unavailable or does not answer.
+   *
+   * Both transports carry the same `clientMessageId`, so a fallback after a
+   * half-delivered socket send cannot produce a second message — the server
+   * recognises the key and returns the stored one.
+   */
+  const deliver = useCallback(
+    async (optimistic) => {
+      const body = {
+        conversationId,
+        content: optimistic.content,
+        isInternal: optimistic.isInternal,
+        clientMessageId: optimistic.clientMessageId,
+      };
+
+      try {
+        const res = await emitWithAck(socket, 'message:send', body);
+        onApplyMessage?.(res.message);
+        return res.message;
+      } catch (socketErr) {
+        // Refusals are final — retrying over REST would just fail again.
+        if (['Not allowed', 'Message is too long', 'Conversation not found'].includes(socketErr.message)) {
+          throw socketErr;
+        }
+        const saved = await conversationService.send(conversationId, body);
+        onApplyMessage?.(saved);
+        return saved;
+      }
+    },
+    [conversationId, socket, onApplyMessage]
+  );
+
+  /**
+   * Send is fire-and-forget from the UI's point of view: the bubble is on
+   * screen and the composer is clear before the network is touched at all.
+   */
   async function send(e) {
     e?.preventDefault();
     const content = text.trim();
-    if (!content || sending) return;
+    if (!content) return;
 
-    setSending(true);
+    const optimistic = createOptimisticMessage({
+      conversationId,
+      senderType: 'agent',
+      senderId: user?._id,
+      senderName: user?.name || 'You',
+      content,
+      isInternal: internal,
+    });
+
+    onApplyMessage?.(optimistic);
+    setText('');
+    setSuggestion(null);
     emitTyping(false);
+
     try {
-      await conversationService.send(conversationId, { content, isInternal: internal });
-      setText('');
-      setSuggestion(null);
-      onRefresh();
+      await deliver(optimistic);
     } catch (err) {
-      toast.error(err.friendlyMessage);
-    } finally {
-      setSending(false);
+      onFailMessage?.(optimistic.clientMessageId, err.friendlyMessage || err.message || 'Message failed to send');
     }
   }
 
+  /** Re-sends a failed message under its original id, so it stays idempotent. */
+  const retry = useCallback(
+    async (message) => {
+      onRetryingMessage?.(message.clientMessageId);
+      try {
+        await deliver(message);
+      } catch (err) {
+        onFailMessage?.(message.clientMessageId, err.friendlyMessage || err.message || 'Message failed to send');
+      }
+    },
+    [deliver, onFailMessage, onRetryingMessage]
+  );
+
+  /** Attachments stay on REST (multipart), but still patch state locally. */
   async function attach(e) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+
     const fd = new FormData();
     fd.append('file', file);
     if (text.trim()) fd.append('content', text.trim());
     if (internal) fd.append('isInternal', 'true');
+
+    setSending(true);
     try {
-      await conversationService.sendFile(conversationId, fd);
+      const saved = await conversationService.sendFile(conversationId, fd);
+      onApplyMessage?.(saved);
       setText('');
-      onRefresh();
     } catch (err) {
       toast.error(err.friendlyMessage);
+    } finally {
+      setSending(false);
     }
   }
 
@@ -303,7 +377,12 @@ export default function ChatPanel({ data, onRefresh, onToggleDetails, agents }) 
       {/* Thread */}
       <div className="flex-1 space-y-4 overflow-y-auto scroll-thin p-4">
         {messages.map((m) => (
-          <AgentMessage key={m._id} message={m} customerName={customer?.name || customer?.email || 'Customer'} />
+          <AgentMessage
+            key={m.clientMessageId || m._id}
+            message={m}
+            customerName={customer?.name || customer?.email || 'Customer'}
+            onRetry={retry}
+          />
         ))}
         {customerTyping && <p className="text-xs italic text-ink-500">Customer is typing…</p>}
         <div ref={bottomRef} />
@@ -333,17 +412,21 @@ export default function ChatPanel({ data, onRefresh, onToggleDetails, agents }) 
             <Button
               size="sm"
               variant="secondary"
-              onClick={async () => {
-                setSending(true);
-                try {
-                  await conversationService.send(conversationId, { content: suggestion.reply });
-                  setSuggestion(null);
-                  onRefresh();
-                } catch (err) {
-                  toast.error(err.friendlyMessage);
-                } finally {
-                  setSending(false);
-                }
+              onClick={() => {
+                // Same optimistic path as a typed message — the agent explicitly
+                // chose to send, so nothing here is auto-sent.
+                const optimistic = createOptimisticMessage({
+                  conversationId,
+                  senderType: 'agent',
+                  senderId: user?._id,
+                  senderName: user?.name || 'You',
+                  content: suggestion.reply,
+                });
+                onApplyMessage?.(optimistic);
+                setSuggestion(null);
+                deliver(optimistic).catch((err) =>
+                  onFailMessage?.(optimistic.clientMessageId, err.friendlyMessage || err.message)
+                );
               }}
             >
               Send as is
@@ -418,12 +501,14 @@ export default function ChatPanel({ data, onRefresh, onToggleDetails, agents }) 
                 : 'border-ink-300 focus:border-brand-500 focus:ring-brand-500/20'
             )}
           />
+          {/* Never disabled while a previous message is in flight — the bubble
+              is already on screen, so the agent can keep typing and sending. */}
           <button
             type="submit"
-            disabled={!text.trim() || sending}
+            disabled={!text.trim()}
             className={cn(
               'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors',
-              text.trim() && !sending ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-ink-200 text-ink-400'
+              text.trim() ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-ink-200 text-ink-400'
             )}
             aria-label="Send"
           >

@@ -215,6 +215,47 @@ Two token audiences, both verified in the Socket.io handshake. **Every id used f
 
 Events: `customer:online/offline`, `agent:online/offline`, `conversation:join/leave`, `message:send/new`, `typing:start/stop`, `message:read`, `conversation:assigned/resolved/handoff`, `presence:update`.
 
+### Message delivery
+
+Live chat is socket-first. REST is the fallback, not the primary path.
+
+```
+click Send
+  → optimistic bubble renders immediately (no network yet)
+  → socket message:send { conversationId, content, clientMessageId }
+  → server saves, acknowledges with the stored document
+  → optimistic bubble is replaced in place
+  → server broadcasts message:new to the conversation room
+  → the other side appends it to local state
+```
+
+**Nothing refetches the conversation or the inbox after a message.** Incoming
+messages are appended to local state; the inbox row is repainted in place from
+the `conversation:activity` payload (preview, timestamp, unread, ordering).
+
+Full list/count refreshes are reserved for changes that can move a conversation
+between filters: created, assigned, resolved, reopened, status changed, and one
+resync per reconnect.
+
+**Idempotency.** Every outgoing message carries a `clientMessageId`. It is a
+unique partial index on `(conversationId, clientMessageId)`, so a socket retry,
+a reconnect replay, a double-click, or a REST fallback after a half-delivered
+socket send all collapse onto one document — the server returns the stored
+message instead of creating a second one. The client dedupes on the same key,
+so the optimistic copy, the acknowledgement and the broadcast render as one
+bubble.
+
+**Delivery states.** `Sending` → `Sent` → `Read`, or `Failed` with a Retry that
+re-sends under the original id.
+
+**AI chat** uses the same path. The acknowledgement fires as soon as the
+customer's own message is durable, so their bubble confirms in milliseconds
+while Gemini keeps generating; the answer arrives afterwards via `ai:thinking`
+→ `message:new` → `ai:done`.
+
+Measured on a local stack: **10–16 ms** from click to on-screen, and **zero**
+API requests on the receiving client while messages arrive.
+
 ### Presence
 
 A 25-second heartbeat updates `lastSeenAt`. Presence is **derived from recency**, not from socket state, because sockets die without disconnecting: fresh → `● Online`, >1 min → `◐ Away`, >5 min → `○ Offline`. A backgrounded tab keeps beating but reports `away`. A sweeper closes sessions that go quiet. Presence is informational and intentionally approximate.

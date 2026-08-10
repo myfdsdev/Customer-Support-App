@@ -36,7 +36,14 @@ const {
 
 const RANK = { low: 0, normal: 1, high: 2, urgent: 3 };
 
-async function handleCustomerMessage({ product, conversation, customer, content }) {
+async function handleCustomerMessage({
+  product,
+  conversation,
+  customer,
+  content,
+  clientMessageId = null,
+  onCustomerMessage,
+}) {
   const productId = product._id;
 
   // 1. Persist the customer's message first so nothing is lost if AI fails.
@@ -46,7 +53,19 @@ async function handleCustomerMessage({ product, conversation, customer, content 
     senderId: customer._id,
     senderName: customer.name || 'Customer',
     content,
+    clientMessageId,
   });
+
+  // Confirm the customer's own message the moment it is durable. Everything
+  // below (classification, retrieval, generation) takes seconds and must not
+  // hold up the sender's delivery state.
+  if (typeof onCustomerMessage === 'function') {
+    try {
+      onCustomerMessage(customerMessage);
+    } catch (err) {
+      logger.warn(`onCustomerMessage callback failed: ${err.message}`);
+    }
+  }
 
   const history = await conversationService.getHistory(conversation._id, 12);
 

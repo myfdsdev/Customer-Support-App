@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, Inbox as InboxIcon, ArrowLeft, RefreshCw } from 'lucide-react';
 import { conversationService, productService, authService } from '../../services/endpoints';
@@ -8,6 +8,8 @@ import ConversationList from '../../components/admin/ConversationList';
 import ChatPanel from '../../components/admin/ChatPanel';
 import CustomerPanel from '../../components/admin/CustomerPanel';
 import { EmptyState, Select } from '../../components/ui';
+import { upsertMessage, markMessageFailed, markMessageSending, mergeMessages } from '../../utils/messages';
+import { messagePreview } from '../../utils/preview';
 import cn from '../../utils/cn';
 
 const FILTERS = [
@@ -44,6 +46,11 @@ export default function Inbox() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [mobileView, setMobileView] = useState('list');
   const [showDetails, setShowDetails] = useState(false);
+
+  // Read inside socket handlers, which are registered once and must not close
+  // over a stale conversation id.
+  const openIdRef = useRef(null);
+  openIdRef.current = conversationId || null;
 
   /* --- data loading ----------------------------------------------------- */
   const loadList = useCallback(async () => {
@@ -97,53 +104,201 @@ export default function Inbox() {
     return () => clearTimeout(t);
   }, [loadList, search]);
 
-  useEffect(loadCounts, [loadCounts, conversations.length]);
+  // Once on mount. Afterwards the lifecycle handlers refresh counts explicitly,
+  // so a list that merely reordered does not trigger a counts request.
+  useEffect(() => {
+    loadCounts();
+  }, [loadCounts]);
 
   useEffect(() => {
     loadDetail(conversationId);
     if (conversationId) setMobileView('chat');
   }, [conversationId, loadDetail]);
 
-  /* --- realtime --------------------------------------------------------- */
+  /* --- local state patching (no network) --------------------------------- */
+
+  /**
+   * Adds a message to the open thread. Used for the agent's own optimistic
+   * bubble, for the socket acknowledgement, and for incoming `message:new` —
+   * `upsertMessage` collapses all three onto one entry.
+   */
+  const applyMessage = useCallback((message) => {
+    if (!message) return;
+    setDetail((prev) => {
+      if (!prev?.conversation) return prev;
+      if (String(message.conversationId) !== String(prev.conversation._id)) return prev;
+      return { ...prev, messages: upsertMessage(prev.messages, message) };
+    });
+  }, []);
+
+  const failMessage = useCallback((clientMessageId, error) => {
+    setDetail((prev) =>
+      prev ? { ...prev, messages: markMessageFailed(prev.messages, clientMessageId, error) } : prev
+    );
+  }, []);
+
+  const retryingMessage = useCallback((clientMessageId) => {
+    setDetail((prev) =>
+      prev ? { ...prev, messages: markMessageSending(prev.messages, clientMessageId) } : prev
+    );
+  }, []);
+
+  /**
+   * Repaints one inbox row in place: preview, timestamp, unread badge, order.
+   * This is what replaces the old full-list refetch on every message.
+   */
+  const patchConversationRow = useCallback(
+    (payload, { message } = {}) => {
+      const id = String(payload?._id || payload?.conversationId || '');
+      if (!id) return;
+
+      setConversations((prev) => {
+        const index = prev.findIndex((c) => String(c._id) === id);
+        if (index === -1) return prev;
+
+        const current = prev[index];
+        const isOpen = String(openIdRef.current || '') === id;
+        const fromCustomer = message?.senderType === 'customer';
+
+        const next = [...prev];
+        next[index] = {
+          ...current,
+          status: payload.status ?? current.status,
+          priority: payload.priority ?? current.priority,
+          channel: payload.channel ?? current.channel,
+          assignedAgentId: payload.assignedAgentId
+            ? current.assignedAgentId && String(current.assignedAgentId._id) === String(payload.assignedAgentId)
+              ? current.assignedAgentId
+              : { _id: payload.assignedAgentId, name: payload.assignedAgentName || current.assignedAgentId?.name }
+            : current.assignedAgentId,
+          lastMessageAt: message?.createdAt || payload.lastMessageAt || current.lastMessageAt,
+          lastMessagePreview: message ? messagePreview(message) : payload.lastMessagePreview ?? current.lastMessagePreview,
+          lastMessageSender: message?.senderType || payload.lastMessageSender || current.lastMessageSender,
+          // The thread on screen is being read right now, so it never grows a badge.
+          unreadForAgent: isOpen ? 0 : fromCustomer ? (current.unreadForAgent || 0) + 1 : current.unreadForAgent || 0,
+        };
+
+        // Newest activity first, matching the server's sort.
+        if (index > 0) {
+          const [row] = next.splice(index, 1);
+          next.unshift(row);
+        }
+        return next;
+      });
+    },
+    []
+  );
+
+  /* --- realtime ----------------------------------------------------------
+   * Registered once. Message traffic is handled purely in local state; only
+   * lifecycle events (which can move a conversation between filters) hit the
+   * network. This is what removes the per-message round trips.
+   * --------------------------------------------------------------------- */
   useEffect(() => {
     if (!socket) return undefined;
 
-    const refreshList = () => {
+    // Conversations can enter or leave the current filter, so these still need
+    // authoritative data — but they are rare compared to messages.
+    const refreshLifecycle = () => {
       loadList();
       loadCounts();
     };
 
     const onNewMessage = (message) => {
-      // Only reload the open thread; the list refresh handles the rest.
-      if (detail?.conversation?._id && String(message.conversationId) === String(detail.conversation._id)) {
-        loadDetail(detail.conversation._id, { silent: true });
-      }
-      refreshList();
+      applyMessage(message);
+      patchConversationRow({ _id: message.conversationId }, { message });
     };
 
-    const onHandoff = ({ conversation, customer }) => {
-      toast.info(`${customer?.name || 'A customer'} asked for a human on ${conversation?.productId || 'a product'}`);
-      refreshList();
+    const onInternalNote = ({ message }) => {
+      applyMessage(message);
+    };
+
+    // Message-driven conversation change: patch the row, never refetch.
+    const onActivity = (payload) => {
+      const { message, ...conversation } = payload || {};
+      patchConversationRow(conversation, { message });
+      if (message) applyMessage(message);
+    };
+
+    const onHandoff = ({ customer, product }) => {
+      toast.info(`${customer?.name || 'A customer'} asked for a human on ${product?.name || 'a product'}`);
+      refreshLifecycle();
+    };
+
+    // Presence only changes a dot; patch the affected rows in place.
+    const onPresence = ({ customerId, presenceStatus }) => {
+      if (!customerId) return;
+      setConversations((prev) => {
+        let touched = false;
+        const next = prev.map((c) => {
+          if (String(c.customerId?._id || c.customerId) !== String(customerId)) return c;
+          if (c.customerPresence === presenceStatus) return c;
+          touched = true;
+          return { ...c, customerPresence: presenceStatus };
+        });
+        return touched ? next : prev;
+      });
     };
 
     socket.on('message:new', onNewMessage);
-    socket.on('conversation:new', refreshList);
-    socket.on('conversation:updated', refreshList);
-    socket.on('conversation:assigned', refreshList);
-    socket.on('conversation:resolved', refreshList);
+    socket.on('message:internal', onInternalNote);
+    socket.on('conversation:activity', onActivity);
+    socket.on('presence:update', onPresence);
+
+    socket.on('conversation:new', refreshLifecycle);
+    socket.on('conversation:updated', refreshLifecycle);
+    socket.on('conversation:assigned', refreshLifecycle);
+    socket.on('conversation:resolved', refreshLifecycle);
     socket.on('conversation:handoff', onHandoff);
-    socket.on('presence:update', refreshList);
 
     return () => {
       socket.off('message:new', onNewMessage);
-      socket.off('conversation:new', refreshList);
-      socket.off('conversation:updated', refreshList);
-      socket.off('conversation:assigned', refreshList);
-      socket.off('conversation:resolved', refreshList);
+      socket.off('message:internal', onInternalNote);
+      socket.off('conversation:activity', onActivity);
+      socket.off('presence:update', onPresence);
+      socket.off('conversation:new', refreshLifecycle);
+      socket.off('conversation:updated', refreshLifecycle);
+      socket.off('conversation:assigned', refreshLifecycle);
+      socket.off('conversation:resolved', refreshLifecycle);
       socket.off('conversation:handoff', onHandoff);
-      socket.off('presence:update', refreshList);
     };
-  }, [socket, loadList, loadCounts, loadDetail, detail?.conversation?._id, toast]);
+  }, [socket, loadList, loadCounts, applyMessage, patchConversationRow, toast]);
+
+  /* --- reconnect ---------------------------------------------------------
+   * A dropped socket can miss messages. Resync exactly once per reconnect —
+   * never on the first connect (the initial load already covered it) and never
+   * during a healthy session.
+   * --------------------------------------------------------------------- */
+  const hasConnectedRef = useRef(false);
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const onConnect = async () => {
+      if (!hasConnectedRef.current) {
+        hasConnectedRef.current = true;
+        return;
+      }
+      const openId = openIdRef.current;
+      if (openId) {
+        socket.emit('conversation:join', { conversationId: openId });
+        try {
+          const missed = await conversationService.listMessages(openId, { limit: 60 });
+          setDetail((prev) =>
+            prev?.conversation && String(prev.conversation._id) === String(openId)
+              ? { ...prev, messages: mergeMessages(prev.messages, missed) }
+              : prev
+          );
+        } catch {
+          /* the list refresh below is enough to recover */
+        }
+      }
+      loadList();
+      loadCounts();
+    };
+
+    socket.on('connect', onConnect);
+    return () => socket.off('connect', onConnect);
+  }, [socket, loadList, loadCounts]);
 
   const select = (c) => {
     navigate(`/admin/inbox/${c._id}`);
@@ -257,6 +412,9 @@ export default function Inbox() {
             data={detail}
             agents={agents}
             onRefresh={refreshDetail}
+            onApplyMessage={applyMessage}
+            onFailMessage={failMessage}
+            onRetryingMessage={retryingMessage}
             onToggleDetails={() => setShowDetails((s) => !s)}
           />
         )}

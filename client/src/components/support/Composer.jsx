@@ -30,14 +30,13 @@ export default function Composer({ onSend, onUpload, onTyping, disabled, placeho
   const submit = async (e) => {
     e?.preventDefault();
     const text = value.trim();
-    if (!text || disabled || busy) return;
+    if (!text || disabled) return;
+    // Clear immediately and do not restore on failure: the message is already
+    // on screen as an optimistic bubble that owns its own error + Retry, so
+    // putting the text back would leave the customer with two copies.
     setValue('');
     onTyping?.(false);
-    try {
-      await onSend(text);
-    } catch {
-      setValue(text); // put it back so nothing is lost
-    }
+    onSend(text);
   };
 
   const onKeyDown = (e) => {
@@ -91,12 +90,14 @@ export default function Composer({ onSend, onUpload, onTyping, disabled, placeho
                    disabled:bg-ink-50"
       />
 
+      {/* Stays enabled while a previous message is in flight — consecutive
+          sends must not be gated on the network. */}
       <button
         type="submit"
-        disabled={disabled || busy || !value.trim()}
+        disabled={disabled || !value.trim()}
         className={cn(
           'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors',
-          value.trim() && !disabled && !busy ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-ink-200 text-ink-400'
+          value.trim() && !disabled ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-ink-200 text-ink-400'
         )}
         aria-label="Send message"
       >

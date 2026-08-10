@@ -36,8 +36,19 @@ const customerSchema = new mongoose.Schema(
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
 
-// Sparse unique: many anonymous customers legitimately have no email.
-customerSchema.index({ email: 1 }, { unique: true, sparse: true });
+/**
+ * Unique email, but only for customers that actually have one.
+ *
+ * This must be a PARTIAL index, not a sparse one. `email` is declared with
+ * `default: null`, so the field is always present in the document — a sparse
+ * index therefore indexes every anonymous customer as `null` and the second
+ * anonymous visitor collides with the first. Filtering on `$type: 'string'`
+ * excludes nulls properly.
+ */
+customerSchema.index(
+  { email: 1 },
+  { unique: true, partialFilterExpression: { email: { $type: 'string' } }, name: 'customer_email_unique' }
+);
 customerSchema.index({ name: 'text', email: 'text', phone: 'text' });
 
 customerSchema.virtual('displayName').get(function displayName() {

@@ -13,6 +13,13 @@ const messageSchema = new mongoose.Schema(
     senderId: { type: mongoose.Schema.Types.ObjectId, default: null },
     senderName: { type: String, default: '' },
 
+    /**
+     * Sender-generated id, echoed back so the client can swap its optimistic
+     * bubble for the saved document. Also the idempotency key: a socket retry,
+     * a reconnect replay or a double-click cannot create a second message.
+     */
+    clientMessageId: { type: String, default: null },
+
     content: { type: String, default: '', maxlength: 20000 },
     messageType: { type: String, enum: MESSAGE_TYPE_LIST, default: MESSAGE_TYPE.TEXT },
 
@@ -72,5 +79,18 @@ const messageSchema = new mongoose.Schema(
 );
 
 messageSchema.index({ conversationId: 1, createdAt: 1 });
+
+// Enforces idempotency in the database rather than in application logic, so
+// two concurrent sends of the same clientMessageId cannot both win the race.
+// Partial (not just sparse) so the many null clientMessageIds on AI, system
+// and legacy messages are excluded from the unique constraint entirely.
+messageSchema.index(
+  { conversationId: 1, clientMessageId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { clientMessageId: { $type: 'string' } },
+    name: 'conversation_client_message_idempotency',
+  }
+);
 
 module.exports = mongoose.model('Message', messageSchema);

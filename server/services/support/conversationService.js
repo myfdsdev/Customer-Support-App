@@ -78,27 +78,45 @@ async function addMessage({
   isInternal = false,
   attachment = null,
   ai = null,
+  clientMessageId = null,
   broadcast = true,
 }) {
-  const message = await Message.create({
-    conversationId: conversation._id,
-    productId: conversation.productId,
-    senderType,
-    senderId,
-    senderName,
-    content,
-    messageType,
-    isInternal,
-    ...(attachment
-      ? {
-          attachmentUrl: attachment.url,
-          attachmentName: attachment.name,
-          attachmentType: attachment.type,
-          attachmentSize: attachment.size,
-        }
-      : {}),
-    ...(ai ? { ai } : {}),
-  });
+  let message;
+  try {
+    message = await Message.create({
+      conversationId: conversation._id,
+      productId: conversation.productId,
+      senderType,
+      senderId,
+      senderName,
+      content,
+      messageType,
+      isInternal,
+      clientMessageId: clientMessageId || null,
+      ...(attachment
+        ? {
+            attachmentUrl: attachment.url,
+            attachmentName: attachment.name,
+            attachmentType: attachment.type,
+            attachmentSize: attachment.size,
+          }
+        : {}),
+      ...(ai ? { ai } : {}),
+    });
+  } catch (err) {
+    // Duplicate clientMessageId: this exact send already landed (socket retry,
+    // reconnect replay, double-click). Return the stored message so the caller
+    // can acknowledge normally, and skip the counters and the broadcast — the
+    // first attempt already did both.
+    if (err.code === 11000 && clientMessageId) {
+      const existing = await Message.findOne({ conversationId: conversation._id, clientMessageId });
+      if (existing) {
+        existing.$wasDuplicate = true;
+        return existing;
+      }
+    }
+    throw err;
+  }
 
   if (!isInternal) {
     const update = {
@@ -130,14 +148,24 @@ async function addMessage({
     if (updated) Object.assign(conversation, updated.toObject());
   }
 
-  if (broadcast) {
+  if (broadcast && !message.$wasDuplicate) {
     const payload = serializeMessage(message);
-    emitter.toConversation(conversation._id, 'message:new', payload);
-    // Internal notes must never leave the staff rooms.
+
     if (isInternal) {
+      // Never touch the conversation room — the customer's socket is in it.
+      // Internal notes go to staff rooms only.
       emitter.toAgents('message:internal', { conversationId: String(conversation._id), message: payload });
+    } else {
+      emitter.toConversation(conversation._id, 'message:new', payload);
     }
-    emitter.toAgents('conversation:updated', serializeConversationLite(conversation));
+    // `activity` (not `updated`) on purpose: this carries everything an inbox
+    // row needs to repaint itself, so the client patches in place instead of
+    // refetching the list. `conversation:updated` stays reserved for changes
+    // that can move a conversation between filters.
+    emitter.toAgents('conversation:activity', {
+      ...serializeConversationLite(conversation),
+      message: payload,
+    });
   }
 
   return message;
@@ -148,6 +176,9 @@ function serializeMessage(m) {
   return {
     _id: String(obj._id),
     conversationId: String(obj.conversationId),
+    // Echoed back so the sender can swap its optimistic bubble in place, and
+    // so every client can drop a message it has already rendered.
+    clientMessageId: obj.clientMessageId || null,
     senderType: obj.senderType,
     senderId: obj.senderId ? String(obj.senderId) : null,
     senderName: obj.senderName || '',

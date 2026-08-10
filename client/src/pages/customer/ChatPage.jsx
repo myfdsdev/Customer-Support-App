@@ -22,7 +22,7 @@ const TOPIC_PROMPTS = {
 export default function ChatPage({ initialMode = 'ai' }) {
   const {
     product, productSlug, messages, conversation, aiThinking, agentTyping,
-    sendMessage, requestHuman, sendFeedback, identify, uploadFile, emitTyping, customer,
+    sendMessage, retryMessage, requestHuman, sendFeedback, identify, uploadFile, emitTyping, customer,
   } = useSupport();
 
   const toast = useToast();
@@ -67,16 +67,17 @@ export default function ChatPage({ initialMode = 'ai' }) {
 
   const topicPrefill = TOPIC_PROMPTS[params.get('topic')] || '';
 
+  /**
+   * The bubble is rendered optimistically inside sendMessage, so this never
+   * blocks the composer. A failure surfaces on the bubble itself with a Retry,
+   * which is why nothing is re-thrown into the composer here.
+   */
   async function handleSend(text) {
-    setSending(true);
     setFeedbackGiven(false);
     try {
       await sendMessage(text);
-    } catch (err) {
-      toast.error(toMessage(err));
-      throw err;
-    } finally {
-      setSending(false);
+    } catch {
+      /* the failed bubble carries the error and the retry action */
     }
   }
 
@@ -211,13 +212,14 @@ export default function ChatPage({ initialMode = 'ai' }) {
 
         {messages.map((m, i) => (
           <ChatMessage
-            key={m._id}
+            key={m.clientMessageId || m._id}
             message={m}
             product={product}
             onVideoClick={openVideo}
             onRecommendationClick={openRecommendation}
             onTalkToSupport={() => escalate('AI could not answer the question')}
             onFeedback={onFeedback}
+            onRetry={retryMessage}
             showFeedback={i === lastAiIndex && !isHuman && !resolved && !feedbackGiven}
           />
         ))}

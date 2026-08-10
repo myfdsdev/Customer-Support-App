@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, User, Info, PlayCircle, FileText, ArrowRight, AlertTriangle, Paperclip } from 'lucide-react';
+import { Bot, User, Info, PlayCircle, FileText, ArrowRight, AlertTriangle, Paperclip, RotateCw } from 'lucide-react';
 import cn from '../../utils/cn';
 import { clockTime, videoDuration, renderInline, fileSize } from '../../utils/format';
 import { Avatar } from '../ui';
@@ -11,7 +11,16 @@ import { Avatar } from '../ui';
  * suggestion. Anything the AI could not ground shows the escalation prompt
  * instead of a confident-looking answer.
  */
-export default function ChatMessage({ message, product, onVideoClick, onRecommendationClick, onTalkToSupport, onFeedback, showFeedback }) {
+export default function ChatMessage({
+  message,
+  product,
+  onVideoClick,
+  onRecommendationClick,
+  onTalkToSupport,
+  onFeedback,
+  onRetry,
+  showFeedback,
+}) {
   const { senderType, content, ai, attachmentUrl, messageType } = message;
 
   if (senderType === 'system') {
@@ -111,8 +120,16 @@ export default function ChatMessage({ message, product, onVideoClick, onRecommen
         </div>
 
         {message.failed && (
-          <p className="mt-1 flex items-center gap-1 text-xs text-red-600">
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-red-600">
             <AlertTriangle className="h-3 w-3" /> {message.error || 'Message failed to send'}
+            {onRetry && (
+              <button
+                onClick={() => onRetry(message)}
+                className="inline-flex items-center gap-0.5 font-medium underline hover:text-red-700"
+              >
+                <RotateCw className="h-3 w-3" /> Retry
+              </button>
+            )}
           </p>
         )}
 

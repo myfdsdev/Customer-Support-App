@@ -2,7 +2,14 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useLocation, useParams } from 'react-router-dom';
 import { supportService } from '../services/endpoints';
 import { getSupportToken, clearSupportToken, toMessage } from '../services/api';
-import { connectCustomerSocket, disconnectCustomerSocket } from '../socket/socket';
+import { connectCustomerSocket, disconnectCustomerSocket, emitWithAck } from '../socket/socket';
+import {
+  createOptimisticMessage,
+  upsertMessage,
+  mergeMessages,
+  markMessageFailed,
+  markMessageSending,
+} from '../utils/messages';
 
 const SupportContext = createContext(null);
 
@@ -38,6 +45,8 @@ export function SupportProvider({ children }) {
   // Kept in a ref so socket emitters do not need to be rebuilt on every
   // conversation change.
   const conversationIdRef = useRef(null);
+  // Distinguishes the first connect from a genuine reconnect.
+  const hasConnectedRef = useRef(false);
 
   const emitTyping = useCallback((typing) => {
     const s = socketRef.current;
@@ -84,7 +93,22 @@ export function SupportProvider({ children }) {
     const socket = connectCustomerSocket(session.supportToken);
     socketRef.current = socket;
 
-    socket.on('connect', () => setConnected(true));
+    socket.on('connect', () => {
+      setConnected(true);
+      // Reconnect: rejoin the room and sync once. Anything missed while the
+      // socket was down is merged by id, so nothing duplicates.
+      if (hasConnectedRef.current) {
+        const id = conversationIdRef.current;
+        if (id) {
+          socket.emit('conversation:join', { conversationId: id });
+          supportService
+            .conversation(productSlug)
+            .then((data) => setMessages((prev) => mergeMessages(prev, data.messages || [])))
+            .catch(() => null);
+        }
+      }
+      hasConnectedRef.current = true;
+    });
     socket.on('disconnect', () => setConnected(false));
     socket.on('connect_error', () => setConnected(false));
 
@@ -94,7 +118,9 @@ export function SupportProvider({ children }) {
 
     socket.on('message:new', (message) => {
       if (message.isInternal) return; // defence in depth; server already filters
-      setMessages((prev) => (prev.some((m) => m._id === message._id) ? prev : [...prev, message]));
+      // Collapses the optimistic copy, the acknowledgement and this broadcast
+      // onto a single bubble.
+      setMessages((prev) => upsertMessage(prev, message));
       if (message.senderType === 'agent') setAgentTyping(false);
     });
 
@@ -175,61 +201,103 @@ export function SupportProvider({ children }) {
     if (session?.supportToken) loadConversation();
   }, [session?.supportToken, loadConversation]);
 
+  /**
+   * Delivers one customer message.
+   *
+   * Human chat goes over the socket and resolves as soon as the message is
+   * stored. AI chat also goes over the socket: the acknowledgement fires when
+   * the customer's own message is durable, and Gemini's reply arrives later via
+   * `message:new` / `ai:done` — so the customer's bubble never waits on the model.
+   *
+   * REST is the fallback for both, carrying the same clientMessageId so a
+   * fallback after a partially-delivered socket send cannot duplicate.
+   */
+  const deliverMessage = useCallback(
+    async (optimistic, { humanMode }) => {
+      const body = {
+        conversationId: conversationIdRef.current,
+        content: optimistic.content,
+        clientMessageId: optimistic.clientMessageId,
+      };
+
+      // Socket needs an existing conversation to target; the very first message
+      // has none yet, so that one goes over REST and creates it.
+      const canUseSocket = socketRef.current?.connected && body.conversationId;
+
+      if (canUseSocket) {
+        try {
+          const res = await emitWithAck(socketRef.current, 'message:send', body);
+          if (res.message) setMessages((prev) => upsertMessage(prev, res.message));
+          return { mode: res.mode || (humanMode ? 'human' : 'ai'), viaSocket: true };
+        } catch (err) {
+          if (['Not allowed', 'Message is too long'].includes(err.message)) throw err;
+          // fall through to REST
+        }
+      }
+
+      const data = await supportService.chat(productSlug, optimistic.content, optimistic.clientMessageId);
+
+      setMessages((prev) => {
+        let next = prev;
+        if (data.customerMessage) next = upsertMessage(next, data.customerMessage);
+        if (data.aiMessage) next = upsertMessage(next, data.aiMessage);
+        if (data.noticeMessage) next = upsertMessage(next, data.noticeMessage);
+        return next;
+      });
+
+      if (!conversationIdRef.current && data.conversationId) await loadConversation();
+      else if (data.mode === 'handoff') {
+        setConversation((c) => (c ? { ...c, channel: 'human', status: 'unassigned', handoffRequested: true } : c));
+      }
+
+      return { ...data, viaSocket: false };
+    },
+    [productSlug, loadConversation]
+  );
+
   const sendMessage = useCallback(
     async (text) => {
       const content = String(text || '').trim();
       if (!content) return null;
 
-      // Optimistic echo so the UI never feels laggy; replaced by the real
-      // message when the server responds or the socket event lands.
-      const tempId = `temp_${Date.now()}`;
-      setMessages((prev) => [
-        ...prev,
-        {
-          _id: tempId,
-          senderType: 'customer',
-          content,
-          messageType: 'text',
-          createdAt: new Date().toISOString(),
-          pending: true,
-        },
-      ]);
-
       const humanMode = conversation?.channel === 'human';
+
+      // On screen before any network call happens.
+      const optimistic = createOptimisticMessage({
+        conversationId: conversationIdRef.current,
+        senderType: 'customer',
+        content,
+      });
+      setMessages((prev) => upsertMessage(prev, optimistic));
+
       if (!humanMode) setAiThinking(true);
 
       try {
-        const data = await supportService.chat(productSlug, content);
-
-        setMessages((prev) => {
-          const withoutTemp = prev.filter((m) => m._id !== tempId);
-          const next = [...withoutTemp];
-          const add = (m) => {
-            if (m && !next.some((x) => x._id === m._id)) next.push(m);
-          };
-          add(data.customerMessage);
-          if (data.aiMessage) add(data.aiMessage);
-          if (data.noticeMessage) add(data.noticeMessage);
-          return next;
-        });
-
-        if (!conversation?._id && data.conversationId) {
-          await loadConversation();
-        } else if (data.mode === 'handoff') {
-          setConversation((c) => (c ? { ...c, channel: 'human', status: 'unassigned', handoffRequested: true } : c));
-        }
-
-        return data;
+        const result = await deliverMessage(optimistic, { humanMode });
+        // The socket AI path keeps thinking until `ai:done`; REST already has
+        // the answer by the time it resolves.
+        if (humanMode || !result.viaSocket) setAiThinking(false);
+        return result;
       } catch (err) {
-        setMessages((prev) =>
-          prev.map((m) => (m._id === tempId ? { ...m, pending: false, failed: true, error: toMessage(err) } : m))
-        );
-        throw err;
-      } finally {
+        setMessages((prev) => markMessageFailed(prev, optimistic.clientMessageId, toMessage(err)));
         setAiThinking(false);
+        throw err;
       }
     },
-    [productSlug, conversation, loadConversation]
+    [conversation, deliverMessage]
+  );
+
+  /** Re-sends a failed message under its original id. */
+  const retryMessage = useCallback(
+    async (message) => {
+      setMessages((prev) => markMessageSending(prev, message.clientMessageId));
+      try {
+        await deliverMessage(message, { humanMode: conversation?.channel === 'human' });
+      } catch (err) {
+        setMessages((prev) => markMessageFailed(prev, message.clientMessageId, toMessage(err)));
+      }
+    },
+    [deliverMessage, conversation]
   );
 
   const requestHuman = useCallback(
@@ -265,7 +333,7 @@ export function SupportProvider({ children }) {
       fd.append('file', file);
       if (caption) fd.append('caption', caption);
       const message = await supportService.upload(productSlug, fd);
-      setMessages((prev) => (prev.some((m) => m._id === message._id) ? prev : [...prev, message]));
+      setMessages((prev) => upsertMessage(prev, message));
       if (!conversation?._id) await loadConversation();
       return message;
     },
@@ -288,6 +356,7 @@ export function SupportProvider({ children }) {
       connected,
       isHumanMode: conversation?.channel === 'human',
       sendMessage,
+      retryMessage,
       requestHuman,
       sendFeedback,
       identify,
@@ -297,8 +366,8 @@ export function SupportProvider({ children }) {
     }),
     [
       productSlug, product, home, loading, error, session, customer, conversation, messages,
-      aiThinking, agentTyping, connected, sendMessage, requestHuman, sendFeedback, identify,
-      uploadFile, emitTyping, loadConversation,
+      aiThinking, agentTyping, connected, sendMessage, retryMessage, requestHuman, sendFeedback,
+      identify, uploadFile, emitTyping, loadConversation,
     ]
   );
 
