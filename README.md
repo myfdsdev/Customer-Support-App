@@ -101,9 +101,34 @@ are rejected before they reach a route.
 > **Vite inlines `VITE_*` at build time.** Changing them requires a rebuild and
 > redeploy — restarting the service will not pick them up.
 
-**`Route not found: POST /auth/login`** means the frontend was built without the
-`/api` prefix resolving correctly — set `VITE_API_URL` to the API origin and
-rebuild. The server's 404 now says this explicitly.
+### Troubleshooting a deployment
+
+**Which frontend build is live?** Open the browser console. Every build logs
+one line on startup:
+
+```
+[support] API base: https://your-api.onrender.com/api
+```
+
+If that line is missing, the browser is running a bundle from before this was
+added — the deploy did not rebuild the frontend.
+
+**`Route not found: POST /auth/login`** — the frontend is calling the API
+without the `/api` prefix. The server now redirects these (308) so the app keeps
+working, and logs a warning once. It is a safety net, not a fix: rebuild the
+frontend to remove the extra round trip. Note the redirect rescues REST only —
+if the frontend and API are on **different** hosts, a stale bundle still opens
+its websocket against the wrong origin, so realtime needs the rebuild.
+
+**Blank page, assets returning 500** — the server's CORS check was rejecting its
+own origin. Vite emits `<script crossorigin>`, so the browser sends an `Origin`
+header even same-origin. Same-origin is now always allowed; if you see this on
+an older build, add the site's own origin to `CLIENT_URL`.
+
+**Images or API calls blocked by Content-Security-Policy** — product logos and
+video thumbnails come from arbitrary admin-entered URLs, so production CSP
+allows `img-src https:` and `connect-src https: wss:`. `upgrade-insecure-requests`
+is deliberately disabled; it breaks any host that is not already HTTPS.
 
 Also remember to put a database name on the Atlas URI
 (`...mongodb.net/support_platform`), or everything is written to a database

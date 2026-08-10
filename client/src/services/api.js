@@ -57,6 +57,14 @@ export function resolveSocketUrl(rawSocket, rawApi) {
 
 const BASE_URL = resolveApiBase(import.meta.env.VITE_API_URL);
 
+// Printed once so you can confirm from the browser console which API base a
+// deployed bundle is actually using — the fastest way to tell a stale build
+// from a misconfigured environment variable.
+// eslint-disable-next-line no-console
+console.info(
+  `[support] API base: ${BASE_URL}${import.meta.env.VITE_API_URL ? '' : ' (same origin)'}`
+);
+
 export const TOKEN_KEY = 'support_platform_token';
 export const SUPPORT_TOKEN_KEY = 'support_session_token';
 export const ANON_KEY = 'support_anonymous_id';
