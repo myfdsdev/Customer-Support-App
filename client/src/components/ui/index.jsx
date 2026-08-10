@@ -203,34 +203,57 @@ export function Modal({ open, onClose, title, description, children, footer, siz
   );
 }
 
+/**
+ * A switch.
+ *
+ * The whole row is the control — previously the track was a <button> wrapped in
+ * a <label>, which looked clickable but only responded on the track itself
+ * (a label does not forward clicks to a nested button the way it does to an
+ * input). One button also gives correct keyboard and screen-reader behaviour.
+ *
+ * Track 36x20, knob 16 inset 2px, so the travel is exactly 16px:
+ *   off -> left 2px .. 18px      on -> left 18px .. 34px
+ * The knob must be anchored with `left`; with only `top` set it falls back to
+ * its static position inside the button and the transform pushes it clean off
+ * the track, which is why it was invisible when switched on.
+ */
 export function Toggle({ checked, onChange, label, description, disabled }) {
   return (
-    <label className={cn('flex items-start gap-3', disabled ? 'opacity-60' : 'cursor-pointer')}>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        disabled={disabled}
-        onClick={() => onChange?.(!checked)}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={Boolean(checked)}
+      aria-label={!label && !description ? 'Toggle' : undefined}
+      disabled={disabled}
+      onClick={() => onChange?.(!checked)}
+      className={cn(
+        'group flex items-start gap-3 text-left focus:outline-none',
+        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+      )}
+    >
+      <span
         className={cn(
-          'relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors',
-          checked ? 'bg-brand-600' : 'bg-ink-300'
+          'relative mt-0.5 block h-5 w-9 shrink-0 rounded-full transition-colors',
+          'group-focus-visible:ring-2 group-focus-visible:ring-brand-500/40 group-focus-visible:ring-offset-2',
+          checked ? 'bg-brand-600' : 'bg-ink-300',
+          !disabled && (checked ? 'group-hover:bg-brand-700' : 'group-hover:bg-ink-400')
         )}
       >
         <span
           className={cn(
-            'absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform',
-            checked ? 'translate-x-4' : 'translate-x-0.5'
+            'absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out',
+            checked ? 'translate-x-4' : 'translate-x-0'
           )}
         />
-      </button>
+      </span>
+
       {(label || description) && (
         <span className="text-sm">
           {label && <span className="font-medium text-ink-800">{label}</span>}
           {description && <span className="block text-xs text-ink-500">{description}</span>}
         </span>
       )}
-    </label>
+    </button>
   );
 }
 
