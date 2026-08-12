@@ -78,7 +78,7 @@ export default function Analytics() {
                   <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} allowDecimals={false} />
                   <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                  <Line type="monotone" dataKey="count" stroke="#4f46e5" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="count" stroke="#597a00" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -99,7 +99,7 @@ export default function Analytics() {
                     <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} allowDecimals={false} />
                     <YAxis type="category" dataKey="intent" tick={{ fontSize: 10, fill: '#64748b' }} width={110} tickLine={false} axisLine={false} />
                     <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                    <Bar dataKey="count" fill="#6366f1" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="count" fill="#8ec400" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

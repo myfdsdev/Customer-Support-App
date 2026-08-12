@@ -86,7 +86,7 @@ export default function Composer({ onSend, onUpload, onTyping, disabled, placeho
         placeholder={placeholder}
         aria-label="Message"
         className="max-h-40 flex-1 resize-none rounded-xl border border-ink-300 px-3.5 py-2.5 text-sm
-                   placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20
+                   placeholder:text-ink-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500/20
                    disabled:bg-ink-50"
       />
 
@@ -97,7 +97,7 @@ export default function Composer({ onSend, onUpload, onTyping, disabled, placeho
         disabled={disabled || !value.trim()}
         className={cn(
           'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors',
-          value.trim() && !disabled ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-ink-200 text-ink-400'
+          value.trim() && !disabled ? 'bg-brand-600 text-ink-900 hover:bg-brand-500' : 'bg-ink-200 text-ink-400'
         )}
         aria-label="Send message"
       >

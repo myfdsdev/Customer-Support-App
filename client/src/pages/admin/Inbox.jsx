@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import ConversationList from '../../components/admin/ConversationList';
 import ChatPanel from '../../components/admin/ChatPanel';
-import CustomerPanel from '../../components/admin/CustomerPanel';
+import CustomerProfileModal from '../../components/admin/CustomerProfileModal';
 import { EmptyState, Select } from '../../components/ui';
 import { upsertMessage, markMessageFailed, markMessageSending, mergeMessages } from '../../utils/messages';
 import { messagePreview } from '../../utils/preview';
@@ -23,10 +23,11 @@ const FILTERS = [
 ];
 
 /**
- * Intercom-style three-column inbox.
+ * Intercom-style two-column inbox.
  *
- * Desktop: list | chat | customer details.
- * Mobile:  one column at a time, list -> chat -> details.
+ * Desktop: list | chat. Mobile: one column at a time, list -> chat.
+ * The customer's context is a popup off their avatar rather than a permanent
+ * third column, so the thread itself gets the whole width.
  */
 export default function Inbox() {
   const { conversationId } = useParams();
@@ -45,7 +46,7 @@ export default function Inbox() {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [mobileView, setMobileView] = useState('list');
-  const [showDetails, setShowDetails] = useState(false);
+  const [profile, setProfile] = useState(null);
 
   // Read inside socket handlers, which are registered once and must not close
   // over a stale conversation id.
@@ -321,7 +322,7 @@ export default function Inbox() {
       {/* ---------- Column 1: conversations ---------- */}
       <div
         className={cn(
-          'flex w-full min-w-0 flex-col border-r border-ink-200 bg-white md:w-80 lg:w-96',
+          'flex w-full min-w-0 flex-col border-r border-ink-200 bg-white md:w-72',
           mobileView !== 'list' && 'hidden md:flex'
         )}
       >
@@ -364,7 +365,7 @@ export default function Inbox() {
                 onClick={() => setFilter(f.value)}
                 className={cn(
                   'rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
-                  filter === f.value ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+                  filter === f.value ? 'bg-brand-600 text-ink-900' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
                 )}
               >
                 {f.label}
@@ -380,6 +381,7 @@ export default function Inbox() {
             loading={listLoading}
             activeId={conversationId}
             onSelect={select}
+            onOpenProfile={setProfile}
           />
         </div>
       </div>
@@ -415,30 +417,17 @@ export default function Inbox() {
             onApplyMessage={applyMessage}
             onFailMessage={failMessage}
             onRetryingMessage={retryingMessage}
-            onToggleDetails={() => setShowDetails((s) => !s)}
+            onOpenProfile={setProfile}
           />
         )}
       </div>
 
-      {/* ---------- Column 3: customer ---------- */}
-      {detail && (
-        <div
-          className={cn(
-            'w-80 shrink-0 border-l border-ink-200',
-            showDetails ? 'fixed inset-y-0 right-0 z-40 bg-white shadow-pop xl:static xl:shadow-none' : 'hidden xl:block'
-          )}
-        >
-          {showDetails && (
-            <button
-              onClick={() => setShowDetails(false)}
-              className="flex w-full items-center gap-1.5 border-b border-ink-200 px-3 py-2 text-sm text-ink-600 xl:hidden"
-            >
-              <ArrowLeft className="h-4 w-4" /> Close
-            </button>
-          )}
-          <CustomerPanel data={detail} onRefresh={refreshDetail} />
-        </div>
-      )}
+      {/* ---------- Customer profile, on demand ---------- */}
+      <CustomerProfileModal
+        open={Boolean(profile)}
+        customerId={profile?._id}
+        onClose={() => setProfile(null)}
+      />
     </div>
   );
 }

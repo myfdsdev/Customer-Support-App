@@ -33,7 +33,7 @@ export default function VideoCard({ video, onClick, compact }) {
 
       <div className="flex-1 p-3">
         {video.feature && (
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-brand-600">{video.feature}</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">{video.feature}</span>
         )}
         <p className="mt-0.5 line-clamp-2 text-sm font-medium text-ink-900">{video.title}</p>
         {!compact && video.description && (

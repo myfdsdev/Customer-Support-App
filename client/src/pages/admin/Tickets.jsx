@@ -99,7 +99,7 @@ export function TicketDetails() {
               to={`/admin/inbox/${ticket.conversationId._id || ticket.conversationId}`}
               className="card flex items-center gap-3 p-4 transition-colors hover:border-brand-300"
             >
-              <MessageSquare className="h-5 w-5 text-brand-600" />
+              <MessageSquare className="h-5 w-5 text-brand-700" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-ink-900">Open the original conversation</p>
                 <p className="truncate text-xs text-ink-500">{ticket.conversationId.lastMessagePreview}</p>
@@ -168,7 +168,7 @@ export function TicketDetails() {
 
           <div className="card p-5">
             <h2 className="mb-2 text-sm font-semibold text-ink-900">Customer</h2>
-            <Link to={`/admin/customers/${ticket.customerId?._id}`} className="text-sm text-brand-600 hover:text-brand-700">
+            <Link to={`/admin/customers/${ticket.customerId?._id}`} className="text-sm text-brand-700 hover:text-brand-800">
               {ticket.customerId?.name || ticket.customerId?.email || 'Anonymous visitor'}
             </Link>
             <p className="mt-1 text-xs text-ink-500">{ticket.customerId?.email}</p>

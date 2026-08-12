@@ -98,7 +98,7 @@ export default function ProductSupport() {
         ) : (
           <div
             className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-white"
-            style={{ background: product.brandColor || '#4f46e5' }}
+            style={{ background: product.brandColor || '#1E293B' }}
           >
             <Headphones className="h-7 w-7" />
           </div>
@@ -134,7 +134,7 @@ export default function ProductSupport() {
             }`}
           >
             <div
-              className={`rounded-lg p-2 ${a.primary ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-600'}`}
+              className={`rounded-lg p-2 ${a.primary ? 'bg-brand-600 text-ink-900' : 'bg-ink-100 text-ink-600'}`}
             >
               <a.icon className="h-5 w-5" />
             </div>
@@ -152,7 +152,7 @@ export default function ProductSupport() {
         <section className="mt-10">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="text-lg font-semibold text-ink-900">Popular help</h2>
-            <Link to={`/support/${productSlug}/help`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
+            <Link to={`/support/${productSlug}/help`} className="text-sm font-medium text-brand-700 hover:text-brand-800">
               Browse all
             </Link>
           </div>
@@ -165,7 +165,7 @@ export default function ProductSupport() {
                   <Link
                     key={c.category}
                     to={`/support/${productSlug}/help?category=${encodeURIComponent(c.category)}`}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 transition-colors hover:border-brand-300 hover:text-brand-700"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 transition-colors hover:border-brand-300 hover:text-brand-800"
                   >
                     <Icon className="h-3.5 w-3.5" />
                     {c.category}
@@ -184,8 +184,8 @@ export default function ProductSupport() {
                 className="group rounded-xl border border-ink-200 bg-white p-3.5 transition-colors hover:border-brand-300"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-medium text-ink-900 group-hover:text-brand-700">{article.title}</p>
-                  <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-ink-300 group-hover:text-brand-500" />
+                  <p className="text-sm font-medium text-ink-900 group-hover:text-brand-800">{article.title}</p>
+                  <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-ink-300 group-hover:text-brand-700" />
                 </div>
                 <p className="mt-1 line-clamp-2 text-xs text-ink-500">{article.summary}</p>
                 <Badge tone="gray" className="mt-2">{article.category}</Badge>
@@ -200,7 +200,7 @@ export default function ProductSupport() {
         <section className="mt-10">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="text-lg font-semibold text-ink-900">Training & tutorials</h2>
-            <Link to={`/support/${productSlug}/training`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
+            <Link to={`/support/${productSlug}/training`} className="text-sm font-medium text-brand-700 hover:text-brand-800">
               See all
             </Link>
           </div>
@@ -231,7 +231,7 @@ export default function ProductSupport() {
                     href={a.linkUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800"
                   >
                     {a.linkText || 'Read more'} <ArrowRight className="h-3 w-3" />
                   </a>
@@ -264,7 +264,7 @@ export default function ProductSupport() {
                 </div>
                 <p className="mt-2 text-sm font-semibold text-ink-900">{rec.title}</p>
                 <p className="mt-1 flex-1 text-xs text-ink-500">{rec.description}</p>
-                <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand-600">
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand-700">
                   {rec.ctaText || 'Learn more'} <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </button>

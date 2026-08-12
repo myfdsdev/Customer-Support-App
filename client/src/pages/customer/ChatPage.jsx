@@ -151,7 +151,7 @@ export default function ChatPage({ initialMode = 'ai' }) {
     <div className="mx-auto flex h-[calc(100vh-8.5rem)] max-w-3xl flex-col sm:h-[calc(100vh-9.5rem)]">
       {/* Conversation header */}
       <div className="flex items-center gap-3 border-b border-ink-200 bg-white px-4 py-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-600">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-700">
           {isHuman ? <Headphones className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
         </div>
         <div className="min-w-0 flex-1">
@@ -222,7 +222,7 @@ export default function ChatPage({ initialMode = 'ai' }) {
       <div className="flex-1 space-y-4 overflow-y-auto scroll-thin bg-ink-50 p-4">
         {/* Welcome */}
         <div className="flex gap-2.5">
-          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
             <Bot className="h-4 w-4" />
           </div>
           <div className="max-w-[85%]">
@@ -239,9 +239,9 @@ export default function ChatPage({ initialMode = 'ai' }) {
               <button
                 key={s}
                 onClick={() => handleSend(s)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-ink-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 transition-colors hover:border-brand-300 hover:text-brand-700"
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 transition-colors hover:border-brand-300 hover:text-brand-800"
               >
-                <Sparkles className="h-3 w-3 text-brand-500" />
+                <Sparkles className="h-3 w-3 text-brand-700" />
                 {s}
               </button>
             ))}
@@ -264,7 +264,7 @@ export default function ChatPage({ initialMode = 'ai' }) {
 
         {aiThinking && (
           <div className="flex gap-2.5">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600">
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
               <Bot className="h-4 w-4" />
             </div>
             <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-ink-200 bg-white px-4 py-3">

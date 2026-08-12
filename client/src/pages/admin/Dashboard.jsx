@@ -112,7 +112,7 @@ export default function Dashboard() {
               >
                 <div
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
-                  style={{ background: row.product.brandColor || '#4f46e5' }}
+                  style={{ background: row.product.brandColor || '#1E293B' }}
                 >
                   {row.product.name.slice(0, 2).toUpperCase()}
                 </div>
@@ -167,7 +167,7 @@ export default function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
             <h2 className="text-sm font-semibold text-ink-900">Recent conversations</h2>
-            <Link to="/admin/inbox" className="text-xs font-medium text-brand-600 hover:text-brand-700">
+            <Link to="/admin/inbox" className="text-xs font-medium text-brand-700 hover:text-brand-800">
               View inbox
             </Link>
           </div>
@@ -196,7 +196,7 @@ export default function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
             <h2 className="text-sm font-semibold text-ink-900">Tickets needing attention</h2>
-            <Link to="/admin/tickets" className="text-xs font-medium text-brand-600 hover:text-brand-700">
+            <Link to="/admin/tickets" className="text-xs font-medium text-brand-700 hover:text-brand-800">
               All tickets
             </Link>
           </div>

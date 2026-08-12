@@ -203,7 +203,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
   );
 }
 
-/**
+ /**
  * A switch.
  *
  * The whole row is the control — previously the track was a <button> wrapped in

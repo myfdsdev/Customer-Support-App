@@ -52,7 +52,7 @@ export default function AgentMessage({ message, customerName, onRetry }) {
     <div className={cn('flex gap-2.5', isCustomer ? 'flex-row' : 'flex-row-reverse')}>
       <div className="mt-0.5 shrink-0">
         {isAI ? (
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-600">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-700">
             <Bot className="h-4 w-4" />
           </div>
         ) : (
@@ -74,7 +74,7 @@ export default function AgentMessage({ message, customerName, onRetry }) {
                 ? 'rounded-br-md border border-amber-200 bg-amber-50 text-amber-900'
                 : isAI
                   ? 'rounded-br-md border border-brand-200 bg-brand-50 text-ink-800'
-                  : 'rounded-br-md bg-brand-600 text-white',
+                  : 'rounded-br-md bg-brand-600 text-ink-900',
             message.failed && 'opacity-60'
           )}
         >

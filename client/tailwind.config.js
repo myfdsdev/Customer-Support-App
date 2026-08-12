@@ -4,17 +4,28 @@ export default {
   theme: {
     extend: {
       colors: {
+        /**
+         * Brand scale built from linear-gradient(90deg, #8EC400, #1E293B) — the
+         * lime is `brand-600`, the slate end is already `ink-800`.
+         *
+         * The scale splits at 600/700 on purpose. Lime is far too bright to read
+         * as text (white on #8EC400 is 2.1:1, and #8EC400 on white is the same),
+         * so:
+         *   50–400  tints and washes
+         *   500–600 fills — always paired with `text-ink-900`, hover lightens to 500
+         *   700–900 text and icons — dark enough to pass AA on white (700 is 5.0:1)
+         */
         brand: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
+          50: '#f9feec',
+          100: '#f0fccf',
+          200: '#e0f99f',
+          300: '#cef764',
+          400: '#c0f631',
+          500: '#a6e600',
+          600: '#8ec400',
+          700: '#597a00',
+          800: '#435c00',
+          900: '#304200',
         },
         ink: {
           50: '#f8fafc',
@@ -29,8 +40,11 @@ export default {
           900: '#0f172a',
         },
       },
+      backgroundImage: {
+        'brand-gradient': 'linear-gradient(90deg, #8EC400 0%, #1E293B 100%)',
+      },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Alata', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       boxShadow: {
         card: '0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.06)',

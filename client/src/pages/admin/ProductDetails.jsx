@@ -32,7 +32,7 @@ export default function ProductDetails() {
     setForm({
       name: data.name, slug: data.slug, tagline: data.tagline || '', description: data.description || '',
       websiteUrl: data.websiteUrl || '', loginUrl: data.loginUrl || '', docsUrl: data.docsUrl || '',
-      supportEmail: data.supportEmail || '', brandColor: data.brandColor || '#4f46e5',
+      supportEmail: data.supportEmail || '', brandColor: data.brandColor || '#1E293B',
       aiWelcomeMessage: data.aiWelcomeMessage || '', aiPersona: data.aiPersona || '', logo: data.logo || '',
       active: data.active,
     });
@@ -218,7 +218,7 @@ export default function ProductDetails() {
                         type="checkbox"
                         checked={on}
                         onChange={() => saveAgents(on ? assigned.filter((id) => id !== a._id) : [...assigned, a._id])}
-                        className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+                        className="h-4 w-4 rounded border-ink-300 text-brand-700 focus:ring-brand-500"
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-ink-800">{a.name}</span>
@@ -234,7 +234,7 @@ export default function ProductDetails() {
             {/* Retrieval tester */}
             <div className="card p-5">
               <h2 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-ink-900">
-                <FlaskConical className="h-4 w-4 text-brand-600" /> Test retrieval
+                <FlaskConical className="h-4 w-4 text-brand-700" /> Test retrieval
               </h2>
               <p className="mb-3 text-xs text-ink-500">
                 See exactly which knowledge a customer question retrieves for this product.

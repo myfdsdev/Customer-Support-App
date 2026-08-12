@@ -55,7 +55,7 @@ function Shell() {
             ) : (
               <div
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-white"
-                style={{ background: product.brandColor || '#4f46e5' }}
+                style={{ background: product.brandColor || '#1E293B' }}
               >
                 <LifeBuoy className="h-4 w-4" />
               </div>

@@ -66,7 +66,7 @@ export default function Training() {
               onClick={() => setCategory('')}
               className={cn(
                 'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-                !category ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 bg-white text-ink-600'
+                !category ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-ink-200 bg-white text-ink-600'
               )}
             >
               All
@@ -77,7 +77,7 @@ export default function Training() {
                 onClick={() => setCategory(c === category ? '' : c)}
                 className={cn(
                   'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-                  category === c ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 bg-white text-ink-600'
+                  category === c ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-ink-200 bg-white text-ink-600'
                 )}
               >
                 {c}

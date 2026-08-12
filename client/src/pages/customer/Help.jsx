@@ -66,7 +66,7 @@ export default function Help() {
             onClick={() => setCategory('')}
             className={cn(
               'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-              !category ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300'
+              !category ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300'
             )}
           >
             All
@@ -78,7 +78,7 @@ export default function Help() {
               className={cn(
                 'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
                 category === c.category
-                  ? 'border-brand-500 bg-brand-50 text-brand-700'
+                  ? 'border-brand-600 bg-brand-50 text-brand-700'
                   : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300'
               )}
             >
@@ -113,13 +113,13 @@ export default function Help() {
               to={`/support/${productSlug}/help/${a._id}`}
               className="group flex items-start gap-3 rounded-xl border border-ink-200 bg-white p-4 transition-colors hover:border-brand-300"
             >
-              <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-ink-400 group-hover:text-brand-500" />
+              <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-ink-400 group-hover:text-brand-700" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-ink-900 group-hover:text-brand-700">{a.title}</p>
+                <p className="text-sm font-medium text-ink-900 group-hover:text-brand-800">{a.title}</p>
                 <p className="mt-0.5 line-clamp-2 text-xs text-ink-500">{a.summary}</p>
                 <Badge tone="gray" className="mt-2">{a.category}</Badge>
               </div>
-              <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-ink-300 group-hover:text-brand-500" />
+              <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-ink-300 group-hover:text-brand-700" />
             </Link>
           ))}
         </div>

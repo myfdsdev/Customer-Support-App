@@ -70,7 +70,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-ink-50 px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-white">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-ink-900">
             <LifeBuoy className="h-6 w-6" />
           </div>
           <h1 className="text-xl font-bold text-ink-900">
@@ -81,6 +81,7 @@ export default function Login() {
               ? 'This is a fresh install. The first account becomes the super admin.'
               : 'Manage support across all of your products.'}
           </p>
+          <div className="mx-auto mt-4 h-1 w-24 rounded-full bg-brand-gradient" aria-hidden="true" />
         </div>
 
         <form onSubmit={submit} className="card space-y-4 p-6">

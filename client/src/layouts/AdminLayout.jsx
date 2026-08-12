@@ -86,7 +86,7 @@ export default function AdminLayout() {
   const sidebar = (
     <div className="flex h-full flex-col bg-ink-900 text-ink-300">
       <div className="flex items-center gap-2.5 px-4 py-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-ink-900">
           <LifeBuoy className="h-4 w-4" />
         </div>
         <div className="min-w-0">
@@ -97,6 +97,9 @@ export default function AdminLayout() {
           <X className="h-5 w-5" />
         </button>
       </div>
+
+      {/* The brand gradient, in the one place it has the width to actually read. */}
+      <div className="mx-4 mb-3 h-0.5 rounded-full bg-brand-gradient" aria-hidden="true" />
 
       <nav className="flex-1 space-y-4 overflow-y-auto scroll-thin px-3 pb-4">
         {sections.map((group, gi) => (
@@ -116,12 +119,16 @@ export default function AdminLayout() {
                     )
                   }
                 >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  {item.badge === 'unassigned' && counts.unassigned > 0 && (
-                    <span className="rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                      {counts.unassigned}
-                    </span>
+                  {({ isActive }) => (
+                    <>
+                      <item.icon className={cn('h-4 w-4 shrink-0', isActive && 'text-brand-500')} />
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {item.badge === 'unassigned' && counts.unassigned > 0 && (
+                        <span className="rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-semibold text-ink-900">
+                          {counts.unassigned}
+                        </span>
+                      )}
+                    </>
                   )}
                 </NavLink>
               ))}

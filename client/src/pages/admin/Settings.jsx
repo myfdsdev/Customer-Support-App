@@ -136,7 +136,7 @@ export default function Settings() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg border border-ink-200 p-4">
                 <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-ink-900">
-                  <Bot className="h-4 w-4 text-brand-600" /> AI provider
+                  <Bot className="h-4 w-4 text-brand-700" /> AI provider
                 </p>
                 <Status ok={health.ai.enabled}>
                   {health.ai.enabled ? `Gemini connected (${health.ai.model})` : 'Gemini not configured'}
@@ -151,7 +151,7 @@ export default function Settings() {
 
               <div className="rounded-lg border border-ink-200 p-4">
                 <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-ink-900">
-                  <Database className="h-4 w-4 text-brand-600" /> Retrieval
+                  <Database className="h-4 w-4 text-brand-700" /> Retrieval
                 </p>
                 <Status ok={health.retrieval.atlasUsable}>
                   {health.retrieval.atlasUsable

@@ -12,7 +12,7 @@ const slugify = (s = '') =>
 
 const EMPTY = {
   name: '', slug: '', tagline: '', description: '', websiteUrl: '', loginUrl: '',
-  supportEmail: '', brandColor: '#4f46e5', aiWelcomeMessage: '', logo: '', active: true,
+  supportEmail: '', brandColor: '#1E293B', aiWelcomeMessage: '', logo: '', active: true,
 };
 
 export default function Products() {
@@ -101,7 +101,7 @@ export default function Products() {
                   ) : (
                     <div
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
-                      style={{ background: p.brandColor || '#4f46e5' }}
+                      style={{ background: p.brandColor || '#1E293B' }}
                     >
                       {p.name.slice(0, 2).toUpperCase()}
                     </div>

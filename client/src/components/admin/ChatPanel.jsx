@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Send, Paperclip, Lock, Sparkles, UserPlus, ArrowRightLeft, TicketPlus, Clock,
-  CheckCircle2, XCircle, RotateCcw, Loader2, ChevronDown, Info, PanelRight,
+  CheckCircle2, XCircle, RotateCcw, Loader2, ChevronDown, Info,
 } from 'lucide-react';
 import { conversationService, ticketService } from '../../services/endpoints';
 import { useToast } from '../../context/ToastContext';
@@ -9,8 +9,8 @@ import { useAuth } from '../../context/AuthContext';
 import { emitWithAck } from '../../socket/socket';
 import { createOptimisticMessage } from '../../utils/messages';
 import AgentMessage from './AgentMessage';
-import { Badge, Button, PresenceDot, Modal, Select, Textarea, Spinner, Alert } from '../ui';
-import { humanize, timeAgo } from '../../utils/format';
+import { Avatar, Badge, Button, PresenceDot, Modal, Select, Textarea, Spinner, Alert } from '../ui';
+import { humanize } from '../../utils/format';
 import cn from '../../utils/cn';
 
 const STATUS_TONE = {
@@ -26,7 +26,7 @@ const STATUS_TONE = {
 export default function ChatPanel({
   data,
   onRefresh,
-  onToggleDetails,
+  onOpenProfile,
   agents,
   onApplyMessage,
   onFailMessage,
@@ -246,26 +246,41 @@ export default function ChatPanel({
 
   return (
     <div className="flex h-full flex-col bg-ink-50">
-      {/* Header */}
+      {/* Header — the name, and the avatar that opens everything else about them */}
       <div className="border-b border-ink-200 bg-white px-4 py-2.5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => customer?._id && onOpenProfile?.(customer)}
+            disabled={!customer?._id}
+            title={customer?._id ? 'View profile' : undefined}
+            aria-label="View customer profile"
+            className="relative shrink-0 rounded-full transition-opacity enabled:hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+          >
+            <Avatar name={customer?.name || customer?.email || 'Anonymous'} size="sm" />
+            <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-[2px]">
+              <PresenceDot status={data.customerPresence?.presenceStatus || 'offline'} />
+            </span>
+          </button>
+
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate text-sm font-semibold text-ink-900">
                 {customer?.name || customer?.email || 'Anonymous visitor'}
               </p>
-              <PresenceDot status={data.customerPresence?.presenceStatus || 'offline'} />
-              <Badge tone="gray">{conversation.productId?.name}</Badge>
-              <Badge tone={STATUS_TONE[conversation.status] || 'gray'}>{humanize(conversation.status)}</Badge>
+              {conversation.status !== 'active' && (
+                <Badge tone={STATUS_TONE[conversation.status] || 'gray'}>{humanize(conversation.status)}</Badge>
+              )}
               {conversation.priority !== 'normal' && (
                 <Badge tone={conversation.priority === 'urgent' ? 'red' : 'amber'}>{conversation.priority}</Badge>
               )}
             </div>
             <p className="mt-0.5 truncate text-xs text-ink-500">
+              {conversation.productId?.name}
+              {conversation.productId?.name && ' · '}
               {conversation.assignedAgentId
-                ? `Assigned to ${conversation.assignedAgentId.name}${mine ? ' (you)' : ''}`
+                ? `Assigned to ${mine ? 'you' : conversation.assignedAgentId.name}`
                 : 'Unassigned'}
-              {conversation.detectedIntent && ` · ${conversation.detectedIntent}`}
             </p>
           </div>
 
@@ -341,14 +356,6 @@ export default function ChatPanel({
               </>
             )}
           </div>
-
-          <button
-            onClick={onToggleDetails}
-            className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-100 xl:hidden"
-            aria-label="Toggle customer details"
-          >
-            <PanelRight className="h-4 w-4" />
-          </button>
         </div>
       </div>
 
@@ -356,7 +363,7 @@ export default function ChatPanel({
       {conversation.aiSummary && (
         <div className="border-b border-brand-100 bg-brand-50/60 px-4 py-2.5">
           <div className="flex items-start gap-2">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">
                 AI summary
@@ -366,7 +373,7 @@ export default function ChatPanel({
             </div>
             <button
               onClick={() => act(() => conversationService.summarize(conversationId), 'Summary regenerated')}
-              className="shrink-0 text-[11px] font-medium text-brand-600 hover:text-brand-700"
+              className="shrink-0 text-[11px] font-medium text-brand-700 hover:text-brand-800"
             >
               Regenerate
             </button>
@@ -392,10 +399,10 @@ export default function ChatPanel({
       {suggestion?.available && (
         <div className="border-t border-brand-200 bg-brand-50 px-4 py-3">
           <div className="flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-brand-600" />
+            <Sparkles className="h-3.5 w-3.5 text-brand-700" />
             <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">Suggested reply</p>
             {suggestion.sources?.length > 0 && (
-              <span className="text-[11px] text-brand-600">· from {suggestion.sources.map((s) => s.title).join(', ')}</span>
+              <span className="text-[11px] text-brand-700">· from {suggestion.sources.map((s) => s.title).join(', ')}</span>
             )}
           </div>
           <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink-800">{suggestion.reply}</p>
@@ -498,7 +505,7 @@ export default function ChatPanel({
               'max-h-40 flex-1 resize-none rounded-xl border px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2',
               internal
                 ? 'border-amber-300 bg-amber-50 focus:border-amber-400 focus:ring-amber-400/20'
-                : 'border-ink-300 focus:border-brand-500 focus:ring-brand-500/20'
+                : 'border-ink-300 focus:border-brand-600 focus:ring-brand-500/20'
             )}
           />
           {/* Never disabled while a previous message is in flight — the bubble
@@ -508,7 +515,7 @@ export default function ChatPanel({
             disabled={!text.trim()}
             className={cn(
               'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors',
-              text.trim() ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-ink-200 text-ink-400'
+              text.trim() ? 'bg-brand-600 text-ink-900 hover:bg-brand-500' : 'bg-ink-200 text-ink-400'
             )}
             aria-label="Send"
           >

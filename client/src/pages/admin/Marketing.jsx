@@ -161,7 +161,7 @@ export default function Marketing() {
                 <div className="mt-3 rounded-lg border border-dashed border-ink-300 p-3">
                   <p className="text-sm font-medium text-ink-900">{r.title}</p>
                   <p className="mt-0.5 text-xs text-ink-500">{r.description}</p>
-                  <p className="mt-1.5 text-xs font-medium text-brand-600">{r.ctaText} →</p>
+                  <p className="mt-1.5 text-xs font-medium text-brand-700">{r.ctaText} →</p>
                 </div>
 
                 {r.triggerKeywords?.length > 0 && (
@@ -253,7 +253,7 @@ export default function Marketing() {
                   onClick={() => toggleSource(p._id)}
                   className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                     form.sourceProducts.includes(p._id)
-                      ? 'border-brand-500 bg-brand-50 text-brand-700'
+                      ? 'border-brand-600 bg-brand-50 text-brand-700'
                       : 'border-ink-200 bg-white text-ink-600'
                   }`}
                 >

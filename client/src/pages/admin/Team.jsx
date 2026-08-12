@@ -236,7 +236,7 @@ export default function Team() {
                   onClick={() => toggleProduct(p._id)}
                   className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                     form.productIds.includes(p._id)
-                      ? 'border-brand-500 bg-brand-50 text-brand-700'
+                      ? 'border-brand-600 bg-brand-50 text-brand-700'
                       : 'border-ink-200 bg-white text-ink-600'
                   }`}
                 >

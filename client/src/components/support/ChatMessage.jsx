@@ -47,7 +47,7 @@ export default function ChatMessage({
       {!isCustomer && (
         <div className="mt-0.5 shrink-0">
           {isAI ? (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-600">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-700">
               <Bot className="h-4 w-4" />
             </div>
           ) : (
@@ -67,7 +67,7 @@ export default function ChatMessage({
           className={cn(
             'rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
             isCustomer
-              ? 'rounded-br-md bg-brand-600 text-white'
+              ? 'rounded-br-md bg-brand-600 text-ink-900'
               : unanswered
                 ? 'rounded-bl-md border border-amber-200 bg-amber-50 text-amber-900'
                 : 'rounded-bl-md border border-ink-200 bg-white text-ink-800',
@@ -87,7 +87,7 @@ export default function ChatMessage({
               rel="noreferrer"
               className={cn(
                 'mb-1 flex items-center gap-2 rounded-lg border p-2 text-xs',
-                isCustomer ? 'border-white/30 text-white' : 'border-ink-200 text-ink-700'
+                isCustomer ? 'border-ink-900/20 text-ink-900' : 'border-ink-200 text-ink-700'
               )}
             >
               <Paperclip className="h-3.5 w-3.5" />
@@ -147,11 +147,11 @@ export default function ChatMessage({
               </div>
             )}
             <span className="min-w-0 flex-1">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-brand-600">Watch training</span>
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-brand-700">Watch training</span>
               <span className="block truncate text-sm font-medium text-ink-800">{ai.video.title}</span>
               {ai.video.duration > 0 && <span className="text-xs text-ink-500">{videoDuration(ai.video.duration)}</span>}
             </span>
-            <PlayCircle className="h-5 w-5 shrink-0 text-brand-600" />
+            <PlayCircle className="h-5 w-5 shrink-0 text-brand-700" />
           </button>
         )}
 
@@ -183,7 +183,7 @@ export default function ChatMessage({
             {ai.recommendation.description && <p className="mt-0.5 text-xs text-ink-500">{ai.recommendation.description}</p>}
             <button
               onClick={() => onRecommendationClick?.(ai.recommendation)}
-              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800"
             >
               {ai.recommendation.ctaText || 'Learn more'} <ArrowRight className="h-3 w-3" />
             </button>

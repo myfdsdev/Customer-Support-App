@@ -107,8 +107,8 @@ export default function HelpArticle() {
                 className="group flex items-center gap-3 rounded-xl border border-ink-200 bg-white p-3 transition-colors hover:border-brand-300"
               >
                 <BookOpen className="h-4 w-4 shrink-0 text-ink-400" />
-                <span className="min-w-0 flex-1 truncate text-sm text-ink-800 group-hover:text-brand-700">{r.title}</span>
-                <ArrowRight className="h-4 w-4 shrink-0 text-ink-300 group-hover:text-brand-500" />
+                <span className="min-w-0 flex-1 truncate text-sm text-ink-800 group-hover:text-brand-800">{r.title}</span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-ink-300 group-hover:text-brand-700" />
               </Link>
             ))}
           </div>
