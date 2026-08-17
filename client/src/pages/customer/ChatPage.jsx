@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Bot, Headphones, Sparkles, CheckCircle2, Loader2, UserRound } from 'lucide-react';
+import { Sparkles, CheckCircle2, Loader2, UserRound, RotateCcw } from 'lucide-react';
 import { useSupport } from '../../context/SupportContext';
 import { supportService } from '../../services/endpoints';
 import { useToast } from '../../context/ToastContext';
 import ChatMessage from '../../components/support/ChatMessage';
 import Composer from '../../components/support/Composer';
-import { Button, Input, Modal, Badge, PresenceDot } from '../../components/ui';
+import ImmersiveShell, { AssistantAvatar } from '../../components/support/ImmersiveShell';
+import { Button, Input, Modal } from '../../components/ui';
 import { toMessage } from '../../services/api';
+import { resolveSupportTheme, assistantNameFor } from '../../utils/supportTheme';
 
 const TOPIC_PROMPTS = {
   billing: 'I have a question about billing',
@@ -21,8 +23,11 @@ const TOPIC_PROMPTS = {
  */
 export default function ChatPage({ initialMode = 'ai' }) {
   const {
-    product, productSlug, messages, conversation, aiThinking, agentTyping, otherOpen, loadedMode,
+    // `otherOpen` is deliberately not read: the cross-mode notice is gone from
+    // this screen. The context still tracks it for anything else that needs it.
+    product, productSlug, messages, conversation, aiThinking, agentTyping, loadedMode,
     sendMessage, retryMessage, requestHuman, sendFeedback, identify, uploadFile, emitTyping, customer,
+    reloadConversation,
   } = useSupport();
 
   const toast = useToast();
@@ -147,161 +152,135 @@ export default function ChatPage({ initialMode = 'ai' }) {
     return -1;
   })();
 
+  const theme = resolveSupportTheme(product);
+  const assistantName = assistantNameFor(product, theme);
+  // The greeting names the screen rather than opening the thread — the real
+  // first reply still arrives as a message like any other.
+  const tagline = product.aiWelcomeMessage?.trim() || `How can I help you today?`;
+
+  // Two controls only, as sparse as the reference: start over, and leave.
+  const shellActions = [
+    { label: 'Reload this conversation', icon: RotateCcw, onClick: () => reloadConversation() },
+  ];
+
   return (
-    <div className="mx-auto flex h-[calc(100vh-8.5rem)] max-w-3xl flex-col sm:h-[calc(100vh-9.5rem)]">
-      {/* Conversation header */}
-      <div className="flex items-center gap-3 border-b border-ink-200 bg-white px-4 py-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-700">
-          {isHuman ? <Headphones className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-ink-900">
-            {isHuman ? 'Support team' : `${product.name} Assistant`}
-          </p>
-          <p className="flex items-center gap-1.5 text-xs text-ink-500">
-            {isHuman ? (
-              conversation?.agent ? (
-                <>
-                  <PresenceDot status={conversation.agent.isOnline ? 'online' : 'offline'} />
-                  {conversation.agent.name} is with you
-                </>
-              ) : (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Waiting for an available agent…
-                </>
-              )
-            ) : (
-              'Answers come from verified product documentation'
+    <ImmersiveShell
+      product={product}
+      theme={theme}
+      framed
+      actions={shellActions}
+      onClose={() => navigate(`/support/${productSlug}`)}
+    >
+      {/* Thread — the identity sits at its head and scrolls away with it. */}
+      <div className="scroll-ghost min-h-0 flex-1 overflow-y-auto px-4">
+        <div className="mx-auto w-full max-w-3xl pb-6">
+          {/* Assistant identity */}
+          <div className="flex flex-col items-center pb-8 pt-10 text-center">
+            <AssistantAvatar
+              product={product}
+              theme={theme}
+              online={!isHuman || Boolean(conversation?.agent?.isOnline)}
+            />
+
+            <h1 className="mt-5 font-script text-4xl font-bold leading-none text-white sm:text-5xl">
+              {assistantName}
+            </h1>
+            <p className="mt-3 text-base font-semibold text-white/90 sm:text-lg">{tagline}</p>
+
+            {/* Said only when it carries news: who is with you, or that we are done. */}
+            {isHuman && (
+              <p className="mt-3 flex items-center gap-1.5 text-[11px] text-white/45">
+                {conversation?.agent ? (
+                  `${conversation.agent.name} is with you`
+                ) : (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Waiting for an available agent…
+                  </>
+                )}
+              </p>
             )}
-          </p>
-        </div>
-
-        {resolved ? (
-          <Badge tone="green" className="gap-1">
-            <CheckCircle2 className="h-3 w-3" /> Resolved
-          </Badge>
-        ) : !isHuman ? (
-          <Button variant="secondary" size="sm" onClick={() => escalate()} loading={escalating}>
-            <Headphones className="h-4 w-4" />
-            <span className="hidden sm:inline">Talk to Support</span>
-          </Button>
-        ) : null}
-      </div>
-
-      {/* A chat open in the other mode — say so plainly rather than leaving the
-          customer wondering where their conversation went. */}
-      {otherOpen && (
-        <div className="flex items-center gap-2 border-b border-ink-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
-          <Headphones className="h-3.5 w-3.5 shrink-0" />
-          {otherOpen.channel === 'human' ? (
-            <>
-              <span className="min-w-0 flex-1">You also have a chat open with the support team.</span>
-              <button
-                onClick={() => navigate(`/support/${productSlug}/live-support`)}
-                className="shrink-0 font-semibold underline hover:text-amber-950"
-              >
-                Go to it
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="min-w-0 flex-1">You have an earlier conversation with the AI assistant.</span>
-              <button
-                onClick={() => navigate(`/support/${productSlug}/chat`)}
-                className="shrink-0 font-semibold underline hover:text-amber-950"
-              >
-                Go to it
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Thread */}
-      <div className="flex-1 space-y-4 overflow-y-auto scroll-thin bg-ink-50 p-4">
-        {/* Welcome */}
-        <div className="flex gap-2.5">
-          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
-            <Bot className="h-4 w-4" />
+            {resolved && (
+              <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-emerald-300">
+                <CheckCircle2 className="h-3 w-3" /> Resolved
+              </p>
+            )}
           </div>
-          <div className="max-w-[85%]">
-            <p className="mb-1 text-xs font-medium text-ink-500">{product.name} Assistant</p>
-            <div className="rounded-2xl rounded-bl-md border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-800">
-              {product.aiWelcomeMessage}
-            </div>
-          </div>
-        </div>
 
-        {messages.length === 0 && (
-          <div className="ml-11 flex flex-wrap gap-2">
-            {starters.map((s) => (
-              <button
-                key={s}
-                onClick={() => handleSend(s)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-ink-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 transition-colors hover:border-brand-300 hover:text-brand-800"
-              >
-                <Sparkles className="h-3 w-3 text-brand-700" />
-                {s}
-              </button>
+          <div className="space-y-3.5">
+            {messages.length === 0 && (
+              <div className="flex flex-wrap justify-center gap-2 pb-2">
+                {starters.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => handleSend(s)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-1.5
+                               text-xs font-medium text-white/70 backdrop-blur transition-colors hover:bg-white/[0.12] hover:text-white"
+                  >
+                    <Sparkles className="h-3 w-3" style={{ color: theme.accentFrom }} />
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {messages.map((m, i) => (
+              <ChatMessage
+                key={m.clientMessageId || m._id}
+                message={m}
+                product={product}
+                minimal
+                // Only a name the product actually chose overrides the bubble's
+                // "<Product> Assistant" label.
+                assistantName={theme.assistantName}
+                theme="dark"
+                onVideoClick={openVideo}
+                onRecommendationClick={openRecommendation}
+                onTalkToSupport={() => escalate('AI could not answer the question')}
+                onFeedback={onFeedback}
+                onRetry={retryMessage}
+                showFeedback={i === lastAiIndex && !isHuman && !resolved && !feedbackGiven}
+              />
             ))}
+
+            {aiThinking && (
+              <div className="flex">
+                <div className="flex items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.09] px-4 py-3 backdrop-blur-sm">
+                  {[0, 150, 300].map((d) => (
+                    <span
+                      key={d}
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/60"
+                      style={{ animationDelay: `${d}ms` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {agentTyping && <p className="text-xs italic text-white/45">Support agent is typing…</p>}
+
+            {resolved && (
+              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.08] p-4 text-center">
+                <CheckCircle2 className="mx-auto mb-1.5 h-5 w-5 text-emerald-300" />
+                <p className="text-sm font-medium text-emerald-100">This conversation is resolved</p>
+                <p className="mt-0.5 text-xs text-emerald-200/70">
+                  Send another message any time and we will pick it back up.
+                </p>
+              </div>
+            )}
           </div>
-        )}
 
-        {messages.map((m, i) => (
-          <ChatMessage
-            key={m.clientMessageId || m._id}
-            message={m}
-            product={product}
-            onVideoClick={openVideo}
-            onRecommendationClick={openRecommendation}
-            onTalkToSupport={() => escalate('AI could not answer the question')}
-            onFeedback={onFeedback}
-            onRetry={retryMessage}
-            showFeedback={i === lastAiIndex && !isHuman && !resolved && !feedbackGiven}
-          />
-        ))}
-
-        {aiThinking && (
-          <div className="flex gap-2.5">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
-              <Bot className="h-4 w-4" />
-            </div>
-            <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-ink-200 bg-white px-4 py-3">
-              {[0, 150, 300].map((d) => (
-                <span
-                  key={d}
-                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-400"
-                  style={{ animationDelay: `${d}ms` }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {agentTyping && (
-          <p className="ml-11 text-xs italic text-ink-500">Support agent is typing…</p>
-        )}
-
-        {resolved && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-            <CheckCircle2 className="mx-auto mb-1.5 h-5 w-5 text-emerald-600" />
-            <p className="text-sm font-medium text-emerald-900">This conversation is resolved</p>
-            <p className="mt-0.5 text-xs text-emerald-700">Send another message any time and we will pick it back up.</p>
-          </div>
-        )}
-
-        <div ref={bottomRef} />
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       <Composer
+        variant="immersive"
         onSend={handleSend}
         onUpload={uploadFile}
         onTyping={emitTyping}
         busy={sending}
-        placeholder={
-          isHuman ? 'Message the support team…' : topicPrefill || `Ask anything about ${product.name}…`
-        }
+        placeholder={isHuman ? 'Message the support team…' : topicPrefill || 'Type your reply…'}
       />
 
       <Modal
@@ -340,6 +319,6 @@ export default function ChatPage({ initialMode = 'ai' }) {
           </p>
         </form>
       </Modal>
-    </div>
+    </ImmersiveShell>
   );
 }

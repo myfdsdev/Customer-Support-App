@@ -18,4 +18,7 @@ module.exports = {
   Announcement: require('./Announcement'),
   Recommendation: require('./Recommendation'),
   AnalyticsEvent: require('./AnalyticsEvent'),
+  PaymentEvent: require('./PaymentEvent'),
+  Notification: require('./Notification'),
+  AuditLog: require('./AuditLog'),
 };

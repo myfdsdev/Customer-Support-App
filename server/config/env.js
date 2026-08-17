@@ -27,6 +27,47 @@ const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   supportTokenExpiresIn: process.env.SUPPORT_TOKEN_EXPIRES_IN || '12h',
 
+  /** Public origin of this deployment. Used for password-reset links only. */
+  appBaseUrl: (process.env.APP_BASE_URL || '').replace(/\/+$/, ''),
+
+  /** Customer membership portal (separate from staff auth on purpose). */
+  portal: {
+    tokenExpiresIn: process.env.CUSTOMER_TOKEN_EXPIRES_IN || '2h',
+    cookieName: process.env.CUSTOMER_COOKIE_NAME || 'portal_session',
+    /**
+     * Cross-site cookies need SameSite=None; Secure. That only works over
+     * HTTPS, so it is opt-in: a split deployment sets it, a single-origin one
+     * leaves it off and gets the stricter Lax cookie.
+     */
+    crossSiteCookies: bool(process.env.CUSTOMER_COOKIE_CROSS_SITE, false),
+    /** Minutes a password-reset token stays valid. */
+    resetTokenMinutes: num(process.env.CUSTOMER_RESET_TOKEN_MINUTES, 60),
+    /** Minutes a signed app-launch token stays valid. */
+    launchTokenMinutes: num(process.env.LAUNCH_TOKEN_MINUTES, 5),
+    /**
+     * Require a verified email before a customer can sign in.
+     * Off by default because no mail transport is wired up yet — turning it on
+     * without one would lock every new registration out. See README.
+     */
+    requireEmailVerification: bool(process.env.CUSTOMER_REQUIRE_EMAIL_VERIFICATION, false),
+  },
+
+  /**
+   * JVZoo IPN.
+   *
+   * `secret` is the value configured in the JVZoo seller dashboard. It never
+   * reaches the browser. When the webhook is enabled but no secret is set the
+   * adapter refuses to mark anything verified — see
+   * services/integrations/jvzooService.js.
+   */
+  jvzoo: {
+    ipnSecret: process.env.JVZOO_IPN_SECRET || '',
+    webhookEnabled: bool(process.env.JVZOO_WEBHOOK_ENABLED, false),
+    get configured() {
+      return Boolean(process.env.JVZOO_IPN_SECRET);
+    },
+  },
+
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || '',
     model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
@@ -64,6 +105,25 @@ if (!env.jwtSecret || env.jwtSecret.length < 24) {
   env.jwtSecret = env.jwtSecret || 'insecure_dev_secret_do_not_use_in_production_0001';
   // eslint-disable-next-line no-console
   console.warn('[env] WARNING: weak JWT_SECRET in use (development only).');
+}
+
+/**
+ * The webhook may be switched on without a secret (for example while the
+ * seller dashboard is still being configured). That is allowed — the adapter
+ * simply cannot mark anything verified, so nothing gets entitled — but it must
+ * be loud, because a silently unverified webhook looks like it is working.
+ */
+if (env.jvzoo.webhookEnabled && !env.jvzoo.ipnSecret) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[env] JVZOO_WEBHOOK_ENABLED is on but JVZOO_IPN_SECRET is empty. ' +
+      'Incoming IPNs will be stored for audit and rejected as unverified — no access will be granted.'
+  );
+}
+
+if (env.isProd && !env.appBaseUrl) {
+  // eslint-disable-next-line no-console
+  console.warn('[env] APP_BASE_URL is not set. Password-reset links will fall back to CLIENT_URL.');
 }
 
 module.exports = env;

@@ -1,4 +1,7 @@
-import { api, supportApi, unwrap, getAnonymousId, setSupportToken } from './api';
+import { api, supportApi, unwrap, getAnonymousId, setSupportToken, toMessage } from './api';
+
+// Re-exported so admin pages can import error formatting alongside services.
+export { toMessage };
 
 /* -------------------------------------------------------------------------
  * Auth
@@ -106,6 +109,33 @@ export const recommendationService = {
   create: (payload) => api.post('/recommendations', payload).then(unwrap),
   update: (id, payload) => api.patch(`/recommendations/${id}`, payload).then(unwrap),
   remove: (id) => api.delete(`/recommendations/${id}`).then(unwrap),
+};
+
+/* -------------------------------------------------------------------------
+ * Integrations (JVZoo) — admin, manage_integrations
+ * ---------------------------------------------------------------------- */
+export const integrationService = {
+  status: () => api.get('/integrations/status').then(unwrap),
+  listEvents: (params) => api.get('/integrations/jvzoo/events', { params }).then(unwrap),
+  reprocessEvent: (id) => api.post(`/integrations/jvzoo/events/${id}/reprocess`).then(unwrap),
+  reprocessPending: () => api.post('/integrations/jvzoo/events/reprocess-pending').then(unwrap),
+  importCsv: (formData) =>
+    api
+      .post('/integrations/jvzoo/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .then(unwrap),
+};
+
+/* -------------------------------------------------------------------------
+ * Portal content — admin, manage_portal_content
+ * ---------------------------------------------------------------------- */
+export const portalContentService = {
+  overview: () => api.get('/portal-content').then(unwrap),
+  createCard: (payload) => api.post('/portal-content/cards', payload).then(unwrap),
+  updateCard: (id, payload) => api.patch(`/portal-content/cards/${id}`, payload).then(unwrap),
+  deleteCard: (id) => api.delete(`/portal-content/cards/${id}`).then(unwrap),
+  createAnnouncement: (payload) => api.post('/portal-content/announcements', payload).then(unwrap),
+  updateAnnouncement: (id, payload) => api.patch(`/portal-content/announcements/${id}`, payload).then(unwrap),
+  deleteAnnouncement: (id) => api.delete(`/portal-content/announcements/${id}`).then(unwrap),
 };
 
 export const dashboardService = {

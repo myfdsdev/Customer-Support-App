@@ -405,8 +405,106 @@ Recommendations are blocked server-side during refunds, payment failures, subscr
 | `npm run seed:fresh --prefix server` | Wipe seeded content and reseed |
 | `npm run reindex --prefix server` | Rebuild chunks + embeddings |
 | `npm run dev:memory --prefix server` | Run against a throwaway in-memory MongoDB |
+| `npm run verify:portal --prefix server` | Entitlement + auth lifecycle tests (in-memory DB) |
+| `npm run smoke:portal --prefix server` | HTTP smoke test of the portal + webhook (in-memory DB) |
 | `npm run build` | Production client build |
 | `npm start` | Production server (serves the built client) |
+
+---
+
+## Customer membership portal
+
+The portal turns the platform into a members' area: a customer logs in, sees the
+products their **verified** JVZoo purchases entitle them to, opens an internal
+product page, launches the app, and gets support — all under a top-nav layout at
+`/portal/*`. It is layered **on top of** the existing systems, not a rewrite:
+the same `Conversation`/`Message` models, Socket.IO, Gemini + RAG, and Admin
+Inbox power portal support unchanged.
+
+### Auth model
+
+Three token audiences, one secret, never interchangeable:
+
+| Audience | Who | Transport | Middleware |
+|---|---|---|---|
+| `staff` | admins/agents (`User`) | `Authorization` header (localStorage) | `authenticateUser` |
+| `support` | anonymous support-widget visitor | support token (sessionStorage) | `authenticateSupportSession` |
+| `customer` | portal member (`Customer`) | HTTP-only cookie + bearer fallback | `authenticateCustomer` |
+
+A staff token is rejected on a portal route and vice-versa (audience check).
+Portal passwords are bcrypt-hashed on `Customer`; a password change bumps
+`sessionVersion`, invalidating tokens already issued.
+
+### Portal routes (client)
+
+`/login` · `/register` · `/forgot-password` · `/reset-password/:token` ·
+`/portal/dashboard` · `/portal/products` · `/portal/products/:slug` ·
+`/portal/support` · `/portal/support/:slug/ai` · `/portal/support/:slug/team` ·
+`/portal/conversations` · `/portal/profile`. Root `/` routes intelligently
+(customer → portal, staff → admin, else → login).
+
+### Portal API
+
+`/api/portal/auth/{register,login,logout,me,forgot-password,reset-password}`,
+`/api/portal/{dashboard,products,products/:slug,products/:id/launch,
+support/products,support/:slug/start,conversations,notifications,profile}`.
+Ownership is re-verified from `CustomerProduct` on **every** product-scoped call
+(`requireCustomerProductAccess`) — URL tampering cannot open an unpurchased
+product, and a refunded entitlement returns 403.
+
+### JVZoo integration
+
+- **Webhook**: `POST /api/integrations/jvzoo/ipn` (public, verified by the
+  `cverify` signature — see `services/integrations/jvzooService.js`). Processing
+  is idempotent (unique `PaymentEvent` index); refunds/chargebacks revoke access
+  without deleting history; unmapped product ids are stored as *pending* for an
+  admin to map and reprocess. Always acknowledges with `1`.
+- **Product mapping**: map one or many JVZoo ids (FE/OTO/bundle) to an internal
+  product under **Admin → Products → (product) → JVZoo mapping**
+  (`manage_integrations` only). Duplicate ids across active products are rejected.
+- **CSV import**: **Admin → JVZoo & Imports → CSV import** — pick a product,
+  upload the export, map columns, preview, confirm. Upserts into the central
+  `CustomerProduct` table (never a per-file collection).
+
+**Verification note:** the `cverify` algorithm implemented is JVZoo's published
+IPN scheme. Validate it against a real JVZoo test IPN before relying on it in
+production; if your account documents a different current scheme, replace
+`computeSignatures` in `jvzooService.js` — nothing downstream changes. With
+`JVZOO_WEBHOOK_ENABLED=true` and no `JVZOO_IPN_SECRET`, events are stored for
+audit and **rejected as unverified** (no access granted).
+
+### Entitlement lifecycle
+
+Verified sale/bill/upsell → active entitlement (`verified:true`,
+`verifiedSource:'jvzoo_ipn'`). Refund/chargeback/cancel → `purchaseStatus`
+flips, `accessRevokedAt` stamped, row **kept** for audit, product disappears
+from the active dashboard. A customer registering on a purchase email **claims**
+the existing record and its imported purchases — no duplicate customer is ever
+created (emails normalised lowercase+trim).
+
+### Admin permissions (capabilities)
+
+Roles are unchanged; a capability layer (`utils/constants.js → ROLE_CAPABILITIES`)
+gates the new surfaces. `manage_integrations` (super_admin only) → JVZoo settings,
+mapping, CSV import, reprocess. `manage_portal_content` (super_admin,
+support_manager, marketing_manager) → dashboard cards & portal announcements.
+Support agents get neither.
+
+### New environment variables
+
+`CUSTOMER_TOKEN_EXPIRES_IN`, `CUSTOMER_COOKIE_NAME`, `CUSTOMER_COOKIE_CROSS_SITE`,
+`CUSTOMER_RESET_TOKEN_MINUTES`, `LAUNCH_TOKEN_MINUTES`,
+`CUSTOMER_REQUIRE_EMAIL_VERIFICATION`, `APP_BASE_URL`, `JVZOO_WEBHOOK_ENABLED`,
+`JVZOO_IPN_SECRET`. See `server/.env.example`. Secrets stay server-side.
+
+### Migration & rollback
+
+All model changes are **additive** — new optional fields and new collections
+(`PaymentEvent`, `Notification`, `AuditLog`); no existing field or index is
+removed, and the `CustomerProduct` unique `(customerId, productId)` index is
+preserved. New indexes build automatically on boot (`autoIndex`). Rollback:
+deploy the previous build; the extra fields/collections are simply ignored (drop
+them manually only if you want the space back).
 
 ---
 
@@ -414,4 +512,14 @@ Recommendations are blocked server-side during refunds, payment failures, subscr
 
 **Phase 1 is complete and verified end to end.** Phase 2 items also shipped: tickets, CRM, assignment, transfer, tags, internal notes, AI summaries, suggested replies, announcements, analytics. Phase 3 shipped in part: recommendations with contextual triggers and suppression, impression/click tracking.
 
-Not built: payment-provider integrations (the `verifiedData` service is the seam for these), audiences/campaign segmentation, support automation rules.
+**Membership portal shipped:** customer auth, JVZoo IPN + CSV import, entitlement
+lifecycle, portal dashboard/product pages/support, admin CMS + portal-content +
+integrations screens. Verified by `npm run verify:portal` (14 service tests) and
+`npm run smoke:portal` (13 HTTP tests), plus a clean production build.
+
+Known limitations / safe next steps: (1) JVZoo `cverify` should be confirmed
+against a live test IPN before go-live; (2) no mail transport is wired up, so
+password-reset and email-verification links are logged in development rather than
+emailed — add a transport and flip `CUSTOMER_REQUIRE_EMAIL_VERIFICATION` on;
+(3) app launch returns the configured URL (with an optional signed launch token)
+— true destination-app SSO is the seam left for later.

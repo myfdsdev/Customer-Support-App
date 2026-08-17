@@ -12,6 +12,15 @@ const { announcementRouter, recommendationRouter } = require('./marketingRoutes'
 
 const router = express.Router();
 
+/**
+ * Integrations are mounted BEFORE the global rate limiter and input sanitiser
+ * on purpose. The JVZoo IPN signature is computed over the raw posted values,
+ * so `sanitizeInput` (which strips control characters and Mongo operators)
+ * must not touch the webhook body, and the webhook carries its own limiter.
+ * The admin routes inside are individually authenticated and capability-gated.
+ */
+router.use('/integrations', require('./integrationRoutes'));
+
 router.use(apiLimiter);
 router.use(sanitizeInput);
 
@@ -30,6 +39,8 @@ router.get('/health', (_req, res) => {
 });
 
 router.use('/auth', require('./authRoutes'));
+router.use('/portal', require('./portalRoutes'));
+router.use('/portal-content', require('./portalContentRoutes'));
 router.use('/support', require('./supportRoutes'));
 router.use('/products', require('./productRoutes'));
 router.use('/knowledge', require('./knowledgeRoutes'));

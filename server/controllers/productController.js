@@ -13,7 +13,10 @@ const {
   CustomerSession,
 } = require('../models');
 const { accessibleProductIds } = require('../middleware/auth');
-const { OPEN_STATUSES } = require('../utils/constants');
+const { OPEN_STATUSES, PRODUCT_PAGE_SECTIONS, CAPABILITIES, roleHasCapability } = require('../utils/constants');
+const { sanitizeText, sanitizeUrl, sanitizeItems } = require('../utils/sanitize');
+const { AuditLog } = require('../models');
+const { hashIp } = require('../utils/tokens');
 
 /** GET /api/products */
 const listProducts = asyncHandler(async (req, res) => {
@@ -85,6 +88,9 @@ const getProduct = asyncHandler(async (req, res) => {
 /** POST /api/products */
 const createProduct = asyncHandler(async (req, res) => {
   const body = { ...req.body };
+  // Rich portal-page content only ever enters through the sanitising PATCH
+  // path, never on create — strip it so raw markup can't be stored here.
+  delete body.portalPage;
   if (body.slug) body.slug = slugify(String(body.slug), { lower: true, strict: true });
 
   const slug = body.slug || slugify(String(body.name || ''), { lower: true, strict: true });
@@ -105,10 +111,57 @@ const updateProduct = asyncHandler(async (req, res) => {
   const fields = [
     'name', 'logo', 'description', 'tagline', 'websiteUrl', 'loginUrl', 'docsUrl',
     'supportEmail', 'brandColor', 'aiWelcomeMessage', 'aiPersona', 'active',
+    // Membership-portal scalars.
+    'purchaseUrl', 'launchUrl', 'accessMode', 'cardImage', 'cardDescription',
+    'featured', 'dashboardVisibility', 'sortOrder',
   ];
   fields.forEach((f) => {
     if (req.body[f] !== undefined) product[f] = req.body[f];
   });
+
+  // Merged rather than replaced, so a caller sending only the colours cannot
+  // wipe the assistant's name.
+  if (req.body.supportPage && typeof req.body.supportPage === 'object') {
+    const current = product.supportPage?.toObject?.() || product.supportPage || {};
+    product.supportPage = { ...current, ...req.body.supportPage };
+  }
+
+  // JVZoo id mapping. Rejects an external id already claimed by another active
+  // product, so a single JVZoo purchase can never grant two internal products
+  // by accident. The admin resolves the conflict by removing it from the other
+  // product first.
+  if (req.body.jvzooProductIds !== undefined) {
+    // Mapping external payment ids is an integrations action, not a general
+    // product edit — gate it on the capability even within this shared route.
+    if (!roleHasCapability(req.user.role, CAPABILITIES.MANAGE_INTEGRATIONS)) {
+      throw ApiError.forbidden('Mapping JVZoo product ids requires the manage_integrations capability');
+    }
+    const ids = (Array.isArray(req.body.jvzooProductIds) ? req.body.jvzooProductIds : [])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean);
+    const unique = [...new Set(ids)];
+
+    if (unique.length) {
+      const clash = await Product.findOne({
+        _id: { $ne: product._id },
+        active: true,
+        jvzooProductIds: { $in: unique },
+      }).select('name jvzooProductIds');
+      if (clash) {
+        const overlapping = unique.filter((id) => clash.jvzooProductIds.includes(id));
+        throw ApiError.conflict(
+          `JVZoo id(s) ${overlapping.join(', ')} are already mapped to "${clash.name}". Remove them there first.`
+        );
+      }
+    }
+    product.jvzooProductIds = unique;
+  }
+
+  // Structured, sanitised product-page content. Every string is stripped of
+  // markup server-side; every URL is allowlisted to http(s)/relative.
+  if (req.body.portalPage && typeof req.body.portalPage === 'object') {
+    product.portalPage = buildPortalPage(product.portalPage, req.body.portalPage);
+  }
 
   if (req.body.slug) {
     const slug = slugify(String(req.body.slug), { lower: true, strict: true });
@@ -120,8 +173,83 @@ const updateProduct = asyncHandler(async (req, res) => {
   }
 
   await product.save();
+
+  if (req.body.jvzooProductIds !== undefined) {
+    AuditLog.record({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      action: 'product.mapping.update',
+      targetType: 'product',
+      targetId: product._id,
+      summary: `Updated JVZoo mapping for ${product.name}`,
+      meta: { jvzooProductIds: product.jvzooProductIds },
+      ipHash: hashIp(req.ip),
+    });
+  }
+
   res.json({ success: true, data: { ...product.toObject(), supportUrl: `/support/${product.slug}` } });
 });
+
+/**
+ * Merges an incoming portal-page patch onto the stored one, sanitising every
+ * field. Unspecified fields are left untouched, so a caller can PATCH one
+ * section without wiping the rest.
+ */
+function buildPortalPage(current, patch) {
+  const base = current?.toObject?.() || current || {};
+  const out = { ...base };
+
+  const textFields = {
+    heroTitle: 160,
+    heroSubtitle: 300,
+    overviewContent: 20000,
+    gettingStartedContent: 20000,
+    howItWorksContent: 20000,
+    seoTitle: 160,
+    seoDescription: 320,
+  };
+  for (const [key, max] of Object.entries(textFields)) {
+    if (patch[key] !== undefined) out[key] = sanitizeText(patch[key], max);
+  }
+
+  const urlFields = ['heroImage', 'heroVideoUrl'];
+  for (const key of urlFields) {
+    if (patch[key] !== undefined) out[key] = sanitizeUrl(patch[key]);
+  }
+
+  if (patch.featureItems !== undefined) {
+    out.featureItems = sanitizeItems(patch.featureItems, {
+      title: { max: 120 },
+      description: { max: 1000 },
+      icon: { max: 40 },
+      imageUrl: { url: true },
+    });
+  }
+  if (patch.faqItems !== undefined) {
+    out.faqItems = sanitizeItems(patch.faqItems, { question: { max: 300 }, answer: { max: 4000 } });
+  }
+  if (patch.resourceLinks !== undefined) {
+    out.resourceLinks = sanitizeItems(patch.resourceLinks, {
+      label: { max: 120 },
+      url: { url: true },
+      description: { max: 400 },
+      kind: { max: 20 },
+    });
+  }
+
+  if (Array.isArray(patch.visibleSections)) {
+    out.visibleSections = patch.visibleSections.filter((s) => PRODUCT_PAGE_SECTIONS.includes(s));
+  }
+  if (Array.isArray(patch.sectionOrder)) {
+    out.sectionOrder = patch.sectionOrder.filter((s) => PRODUCT_PAGE_SECTIONS.includes(s));
+  }
+  if (patch.showTutorials !== undefined) out.showTutorials = Boolean(patch.showTutorials);
+  if (patch.showRelated !== undefined) out.showRelated = Boolean(patch.showRelated);
+  if (patch.pageStatus !== undefined) out.pageStatus = patch.pageStatus === 'draft' ? 'draft' : 'published';
+
+  return out;
+}
 
 /** DELETE /api/products/:productId */
 const deleteProduct = asyncHandler(async (req, res) => {

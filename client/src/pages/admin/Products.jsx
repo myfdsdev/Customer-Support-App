@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Package, ExternalLink, Copy, BookOpen, GraduationCap, MessageSquare, Check } from 'lucide-react';
 import { productService } from '../../services/endpoints';
+import { productHost } from '../../utils/productLogo';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/admin/PageHeader';
-import { Button, Input, Textarea, Modal, Badge, Spinner, EmptyState, Toggle } from '../../components/ui';
+import { Button, Input, Textarea, Modal, Badge, Spinner, EmptyState, Toggle, ProductLogo } from '../../components/ui';
 
 const slugify = (s = '') =>
   s.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
@@ -96,16 +97,7 @@ export default function Products() {
             {products.map((p) => (
               <div key={p._id} className="card flex flex-col p-4">
                 <div className="flex items-start gap-3">
-                  {p.logo ? (
-                    <img src={p.logo} alt="" className="h-10 w-10 rounded-lg object-cover" />
-                  ) : (
-                    <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
-                      style={{ background: p.brandColor || '#1E293B' }}
-                    >
-                      {p.name.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
+                  <ProductLogo product={p} className="h-10 w-10" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate font-semibold text-ink-900">{p.name}</p>
@@ -204,7 +196,27 @@ export default function Products() {
             <Input label="Website URL" name="websiteUrl" value={form.websiteUrl} onChange={change} placeholder="https://…" />
             <Input label="App login URL" name="loginUrl" value={form.loginUrl} onChange={change} placeholder="https://app…/login" />
             <Input label="Support email" name="supportEmail" value={form.supportEmail} onChange={change} placeholder="support@…" />
-            <Input label="Logo URL" name="logo" value={form.logo} onChange={change} placeholder="https://…/logo.png" />
+            <Input
+              label="Logo URL"
+              name="logo"
+              value={form.logo}
+              onChange={change}
+              placeholder="https://…/logo.png"
+              hint="Optional — leave empty to use the website's own icon."
+            />
+            <div>
+              <span className="label">Logo preview</span>
+              <div className="flex items-center gap-2.5">
+                <ProductLogo product={form} className="h-10 w-10" />
+                <p className="text-xs text-ink-500">
+                  {form.logo
+                    ? 'Using the logo URL above.'
+                    : productHost(form.websiteUrl)
+                      ? `From ${productHost(form.websiteUrl)}`
+                      : 'Add a website URL and the icon appears here.'}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div>

@@ -85,6 +85,50 @@ async function startSession({ product, anonymousId, currentPage = '', userAgent 
   return { session, customer, anonymousId: anonId };
 }
 
+/**
+ * Starts (or resumes) a support session for an ALREADY-AUTHENTICATED portal
+ * customer, rather than an anonymous visitor.
+ *
+ * The customer is known up front, so there is nothing to look up by anonymous
+ * id — but the rest of the support stack (socket auth, the /support endpoints,
+ * the inbox) is built around a CustomerSession, so the portal reuses exactly
+ * that machinery instead of a parallel one. A stable synthetic anonymousId
+ * keyed on the customer id keeps the record findable without ever colliding
+ * with a real browser id.
+ */
+async function startAuthenticatedSession({ product, customer, currentPage = '', userAgent = '', ip = '', referrer = '' }) {
+  const anonId = `portal_${customer._id}`;
+
+  let session = await CustomerSession.findOne({
+    customerId: customer._id,
+    productId: product._id,
+    endedAt: null,
+  }).sort({ lastSeenAt: -1 });
+
+  if (session) {
+    session.presenceStatus = PRESENCE.ONLINE;
+    session.currentPage = currentPage || session.currentPage;
+    session.lastSeenAt = new Date();
+    await session.save();
+  } else {
+    session = await CustomerSession.create({
+      customerId: customer._id,
+      anonymousId: anonId,
+      productId: product._id,
+      presenceStatus: PRESENCE.ONLINE,
+      currentPage,
+      userAgent: String(userAgent).slice(0, 300),
+      ipHash: ip ? hashIp(ip) : '',
+      referrer: String(referrer).slice(0, 300),
+      startedAt: new Date(),
+      lastSeenAt: new Date(),
+    });
+  }
+
+  broadcastPresence({ session, customer, product });
+  return { session, customer, anonymousId: anonId };
+}
+
 /** Heartbeat: refresh lastSeen and (optionally) the page the visitor is on. */
 async function heartbeat({ sessionId, currentPage, presenceStatus }) {
   const update = { lastSeenAt: new Date() };
@@ -246,6 +290,7 @@ async function setAgentPresence(agentId, isOnline) {
 
 module.exports = {
   startSession,
+  startAuthenticatedSession,
   heartbeat,
   attachSocket,
   detachSocket,

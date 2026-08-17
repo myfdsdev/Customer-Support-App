@@ -115,7 +115,9 @@ const productBreakdown = asyncHandler(async (req, res) => {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
   const products = await Product.find(scope ? { _id: { $in: scope } } : {})
-    .select('name slug logo brandColor')
+    // websiteUrl feeds the dashboard tiles' logo fallback, which derives a mark
+    // from the product's own site when no logo has been uploaded.
+    .select('name slug logo brandColor websiteUrl')
     .lean();
 
   const rows = await Conversation.aggregate([

@@ -7,7 +7,9 @@ import {
 import { useSupport } from '../../context/SupportContext';
 import { supportService } from '../../services/endpoints';
 import VideoCard from '../../components/support/VideoCard';
-import { Badge } from '../../components/ui';
+import ImmersiveShell, { AssistantAvatar } from '../../components/support/ImmersiveShell';
+import { Badge, ProductLogo } from '../../components/ui';
+import { resolveSupportTheme, assistantNameFor } from '../../utils/supportTheme';
 import { timeAgo } from '../../utils/format';
 
 const CATEGORY_ICONS = {
@@ -31,13 +33,79 @@ const ANNOUNCEMENT_TONE = {
 };
 
 /**
- * The support homepage for one product.
+ * The support landing screen: a full-bleed welcome from the product's
+ * assistant, and one way in.
+ *
+ * Everything the hub used to show — the action cards, popular help, training,
+ * announcements, recommendations — still exists in `SupportHub` below and is
+ * still reachable at /help and /training. It is simply not what a customer
+ * meets first any more.
+ */
+export default function ProductSupport() {
+  const { product, productSlug } = useSupport();
+  const theme = resolveSupportTheme(product);
+
+  const welcome =
+    theme.welcomeText ||
+    product.aiWelcomeMessage?.trim() ||
+    `Welcome to ${product.name} Support. I'll help you find answers, solve issues, and connect you with the right support.`;
+
+  // "Close" means leaving support, so it goes wherever the product says, else
+  // to its own site, else back out of the tab it was opened in.
+  const closeSupport = () => {
+    const target = theme.closeUrl || product.websiteUrl;
+    if (target) {
+      window.location.href = target;
+      return;
+    }
+    window.close();
+  };
+
+  return (
+    <ImmersiveShell product={product} theme={theme} onClose={closeSupport}>
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-14 text-center">
+        <AssistantAvatar product={product} theme={theme} />
+
+        <h1 className="mt-7 text-3xl font-bold uppercase tracking-[0.2em] text-white sm:text-4xl">
+          {assistantNameFor(product, theme)}
+        </h1>
+        {theme.assistantRole && (
+          <p
+            className="mt-2.5 text-[11px] font-semibold uppercase tracking-[0.34em]"
+            style={{ color: theme.accentFrom }}
+          >
+            {theme.assistantRole}
+          </p>
+        )}
+
+        <p className="mt-7 max-w-2xl text-lg leading-relaxed text-white/80 sm:text-xl">{welcome}</p>
+
+        {/* The same destination the "Ask AI Assistant" card always pointed at. */}
+        <Link
+          to={`/support/${productSlug}/chat`}
+          className="support-cta mt-10 inline-flex items-center justify-center rounded-full px-10 py-4
+                     text-base font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70
+                     focus-visible:ring-offset-2"
+          style={{ '--tw-ring-offset-color': theme.bgMid }}
+        >
+          {theme.ctaText}
+        </Link>
+      </div>
+    </ImmersiveShell>
+  );
+}
+
+/**
+ * The classic support hub for one product.
  *
  * Support actions come first and occupy the top of the page. Product
  * discovery lives at the bottom under "More from our team" and is never
  * allowed to interrupt a support task.
+ *
+ * Kept whole behind the welcome screen: nothing here changed, it is just no
+ * longer the landing state.
  */
-export default function ProductSupport() {
+export function SupportHub() {
   const { product, home, productSlug } = useSupport();
   const navigate = useNavigate();
 
@@ -93,16 +161,12 @@ export default function ProductSupport() {
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
       {/* Hero */}
       <div className="text-center">
-        {product.logo ? (
-          <img src={product.logo} alt="" className="mx-auto mb-4 h-14 w-14 rounded-2xl object-cover" />
-        ) : (
-          <div
-            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-white"
-            style={{ background: product.brandColor || '#1E293B' }}
-          >
-            <Headphones className="h-7 w-7" />
-          </div>
-        )}
+        <ProductLogo
+          product={product}
+          rounded="rounded-2xl"
+          className="mx-auto mb-4 h-14 w-14"
+          fallback={<Headphones className="h-7 w-7 text-white" />}
+        />
         <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">{product.name} Support Centre</h1>
         <p className="mt-2 text-ink-500">How can we help you today?</p>
       </div>
@@ -255,11 +319,12 @@ export default function ProductSupport() {
                 className="group flex flex-col rounded-xl border border-dashed border-ink-300 bg-white p-4 text-left transition-colors hover:border-brand-300 hover:bg-brand-50/40"
               >
                 <div className="flex items-center gap-2">
-                  {rec.product?.logo ? (
-                    <img src={rec.product.logo} alt="" className="h-6 w-6 rounded object-cover" />
-                  ) : (
-                    <PlayCircle className="h-5 w-5 text-ink-400" />
-                  )}
+                  <ProductLogo
+                    product={rec.product}
+                    rounded="rounded"
+                    className="h-6 w-6"
+                    fallback={<PlayCircle className="h-3.5 w-3.5 text-white" />}
+                  />
                   <span className="text-xs font-medium text-ink-500">{rec.product?.name}</span>
                 </div>
                 <p className="mt-2 text-sm font-semibold text-ink-900">{rec.title}</p>

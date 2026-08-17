@@ -1,12 +1,21 @@
 import React, { useEffect } from 'react';
-import { Link, NavLink, Outlet, useParams } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
 import { LifeBuoy, MessageSquare, GraduationCap, BookOpen, Home, Wifi, WifiOff } from 'lucide-react';
 import { SupportProvider, useSupport } from '../context/SupportContext';
-import { Spinner, ErrorState } from '../components/ui';
+import { Spinner, ErrorState, ProductLogo } from '../components/ui';
 import cn from '../utils/cn';
+
+/**
+ * The welcome screen and the conversation run full-bleed on their own dark
+ * stage, so the hub's header, nav and footer stay out of their way. Training
+ * and help articles are still documents and keep the chrome.
+ */
+const IMMERSIVE_ROUTE = /^\/support\/[^/]+(?:\/(?:chat|live-support))?\/?$/;
 
 function Shell() {
   const { product, loading, error, connected, productSlug } = useSupport();
+  const { pathname } = useLocation();
+  const immersive = IMMERSIVE_ROUTE.test(pathname);
 
   // Each product's own colour drives the page without a rebuild.
   useEffect(() => {
@@ -19,7 +28,12 @@ function Shell() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
+      <div
+        className={cn(
+          'flex min-h-screen items-center justify-center',
+          immersive ? 'support-stage text-white' : 'bg-white'
+        )}
+      >
         <Spinner label="Loading support centre…" />
       </div>
     );
@@ -27,10 +41,15 @@ function Shell() {
 
   if (error || !product) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white p-6">
+      <div
+        className={cn(
+          'flex min-h-screen items-center justify-center p-6',
+          immersive ? 'support-stage text-white' : 'bg-white'
+        )}
+      >
         <div className="max-w-md text-center">
           <ErrorState message={error || 'Support page not found'} />
-          <p className="mt-2 text-sm text-ink-500">
+          <p className={cn('mt-2 text-sm', immersive ? 'text-white/60' : 'text-ink-500')}>
             Check the support link you were given, or contact the team that sent it to you.
           </p>
         </div>
@@ -46,20 +65,23 @@ function Shell() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-ink-50">
+    <div
+      className={cn(
+        'flex flex-col',
+        // Immersive screens own the viewport exactly: the composer has to sit
+        // on the bottom edge without the page itself scrolling.
+        immersive ? 'h-screen overflow-hidden bg-[#04122a]' : 'min-h-screen bg-ink-50'
+      )}
+    >
+      {!immersive && (
       <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
           <Link to={`/support/${productSlug}`} className="flex min-w-0 items-center gap-2.5">
-            {product.logo ? (
-              <img src={product.logo} alt="" className="h-8 w-8 rounded-lg object-cover" />
-            ) : (
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-white"
-                style={{ background: product.brandColor || '#1E293B' }}
-              >
-                <LifeBuoy className="h-4 w-4" />
-              </div>
-            )}
+            <ProductLogo
+              product={product}
+              className="h-8 w-8"
+              fallback={<LifeBuoy className="h-4 w-4 text-white" />}
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-ink-900">{product.name}</p>
               <p className="text-[11px] text-ink-500">Support Centre</p>
@@ -114,11 +136,13 @@ function Shell() {
           ))}
         </nav>
       </header>
+      )}
 
-      <main className="flex-1">
+      <main className="flex min-h-0 flex-1 flex-col">
         <Outlet />
       </main>
 
+      {!immersive && (
       <footer className="border-t border-ink-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-xs text-ink-500">
           <p>© {new Date().getFullYear()} {product.name}</p>
@@ -141,6 +165,7 @@ function Shell() {
           </div>
         </div>
       </footer>
+      )}
     </div>
   );
 }

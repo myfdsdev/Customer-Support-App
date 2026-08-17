@@ -48,7 +48,7 @@ function liveFilter(placement, sourceProductId) {
 /** Recommendations for a static surface (support homepage, training page...). */
 async function getPlacementRecommendations({ placement, sourceProductId, limit = 3 }) {
   return Recommendation.find(liveFilter(placement, sourceProductId))
-    .populate('promotedProductId', 'name slug logo brandColor')
+    .populate('promotedProductId', 'name slug logo brandColor websiteUrl')
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();
@@ -78,6 +78,60 @@ async function getContextualRecommendation({ sourceProductId, question, intent, 
   return hit || null;
 }
 
+/**
+ * Recommendations for a customer-portal placement.
+ *
+ * Adds the portal-only targeting rules on top of the standard live filter:
+ *   - hide cards for products the customer already owns, unless the card is
+ *     explicitly an upgrade/add-on (`excludeExistingOwners: false`);
+ *   - honour `targetProducts` (must own one of) and `targetSegments` (tags);
+ *   - order by displayOrder then recency.
+ *
+ * @param {object} args
+ * @param {string} args.placement
+ * @param {Set<string>} args.ownedProductIds  product ids the customer owns (strings)
+ * @param {string[]} args.customerTags
+ */
+async function getPortalRecommendations({ placement, ownedProductIds = new Set(), customerTags = [], limit = 6 }) {
+  const now = new Date();
+  const candidates = await Recommendation.find({
+    active: true,
+    placement,
+    startAt: { $lte: now },
+    $or: [{ endAt: null }, { endAt: { $gte: now } }],
+  })
+    .populate('promotedProductId', 'name slug logo brandColor tagline cardImage purchaseUrl')
+    .sort({ displayOrder: 1, createdAt: -1 })
+    .limit(limit * 3) // over-fetch: some will be filtered out below
+    .lean();
+
+  const owned = ownedProductIds instanceof Set ? ownedProductIds : new Set(ownedProductIds.map(String));
+  const tags = new Set((customerTags || []).map(String));
+
+  const eligible = candidates.filter((rec) => {
+    const promotedId = String(rec.promotedProductId?._id || rec.promotedProductId || '');
+
+    // Don't recommend something the customer already owns unless it's an
+    // explicit upgrade/add-on offer.
+    if (rec.excludeExistingOwners !== false && owned.has(promotedId)) return false;
+
+    // Ownership requirement (upgrade offers target existing owners).
+    if (rec.targetProducts && rec.targetProducts.length) {
+      const targeted = rec.targetProducts.map(String);
+      if (!targeted.some((id) => owned.has(id))) return false;
+    }
+
+    // Segment requirement.
+    if (rec.targetSegments && rec.targetSegments.length) {
+      if (!rec.targetSegments.some((seg) => tags.has(String(seg)))) return false;
+    }
+
+    return true;
+  });
+
+  return eligible.slice(0, limit);
+}
+
 async function trackImpression(recommendationId, { productId, customerId } = {}) {
   if (!recommendationId) return;
   await Recommendation.updateOne({ _id: recommendationId }, { $inc: { impressions: 1 } }).catch(() => null);
@@ -105,6 +159,7 @@ async function trackClick(recommendationId, { productId, customerId } = {}) {
 module.exports = {
   isRecommendationAllowed,
   getPlacementRecommendations,
+  getPortalRecommendations,
   getContextualRecommendation,
   trackImpression,
   trackClick,

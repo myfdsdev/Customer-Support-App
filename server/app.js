@@ -145,6 +145,7 @@ app.use('/api', routes);
 const API_PREFIX_SEGMENTS = new Set([
   'auth', 'support', 'products', 'knowledge', 'training', 'conversations',
   'customers', 'tickets', 'announcements', 'recommendations', 'dashboard', 'analytics', 'health',
+  'portal', 'integrations', 'portal-content',
 ]);
 let warnedAboutPrefix = false;
 

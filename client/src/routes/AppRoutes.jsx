@@ -1,16 +1,32 @@
 import React from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { usePortalAuth } from '../context/PortalAuthContext';
 import { Spinner, EmptyState } from '../components/ui';
 
 import SupportLayout from '../layouts/SupportLayout';
 import AdminLayout from '../layouts/AdminLayout';
+import PortalLayout from '../layouts/PortalLayout';
 
 import ProductSupport from '../pages/customer/ProductSupport';
 import ChatPage from '../pages/customer/ChatPage';
 import Training from '../pages/customer/Training';
 import Help from '../pages/customer/Help';
 import HelpArticle from '../pages/customer/HelpArticle';
+
+// --- Membership portal ---
+import ProtectedCustomerRoute from '../components/portal/ProtectedCustomerRoute';
+import PortalLogin from '../pages/portal/Login';
+import PortalRegister from '../pages/portal/Register';
+import PortalForgotPassword from '../pages/portal/ForgotPassword';
+import PortalResetPassword from '../pages/portal/ResetPassword';
+import CustomerDashboard from '../pages/portal/Dashboard';
+import PortalProducts from '../pages/portal/Products';
+import PortalProductDetail from '../pages/portal/ProductDetail';
+import PortalSupport from '../pages/portal/Support';
+import PortalChat from '../pages/portal/PortalChat';
+import PortalConversations from '../pages/portal/Conversations';
+import PortalProfile from '../pages/portal/Profile';
 
 import Login from '../pages/admin/Login';
 import Dashboard from '../pages/admin/Dashboard';
@@ -27,6 +43,8 @@ import Marketing from '../pages/admin/Marketing';
 import Team from '../pages/admin/Team';
 import Analytics from '../pages/admin/Analytics';
 import Settings from '../pages/admin/Settings';
+import Integrations from '../pages/admin/Integrations';
+import PortalContent from '../pages/admin/PortalContent';
 
 /** Blocks admin routes until auth resolves, then redirects to login if needed. */
 function RequireAuth({ children }) {
@@ -78,6 +96,43 @@ function AdminHome() {
   return <Navigate to={target} replace />;
 }
 
+/**
+ * Intelligent landing at `/`.
+ *
+ * A signed-in customer goes to their portal; a signed-in staff member to the
+ * admin console; everyone else to the customer login. Both auth contexts are
+ * consulted, and we wait for whichever is still resolving so a hard refresh at
+ * `/` doesn't bounce an authenticated user to login.
+ */
+function RootRedirect() {
+  const { isAuthenticated: staffIn, loading: staffLoading } = useAuth();
+  const { isAuthenticated: customerIn, loading: customerLoading } = usePortalAuth();
+
+  if (staffLoading || customerLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Spinner label="Loading…" />
+      </div>
+    );
+  }
+  if (customerIn) return <Navigate to="/portal/dashboard" replace />;
+  if (staffIn) return <Navigate to="/admin" replace />;
+  return <Navigate to="/login" replace />;
+}
+
+/** Keeps an already-signed-in customer out of the auth pages. */
+function PortalPublicOnly({ children }) {
+  const { isAuthenticated, loading } = usePortalAuth();
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Spinner label="Loading…" />
+      </div>
+    );
+  }
+  return isAuthenticated ? <Navigate to="/portal/dashboard" replace /> : children;
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -89,6 +144,31 @@ export default function AppRoutes() {
         <Route path="training" element={<Training />} />
         <Route path="help" element={<Help />} />
         <Route path="help/:articleId" element={<HelpArticle />} />
+      </Route>
+
+      {/* ---------- Customer membership portal ---------- */}
+      <Route path="/login" element={<PortalPublicOnly><PortalLogin /></PortalPublicOnly>} />
+      <Route path="/register" element={<PortalPublicOnly><PortalRegister /></PortalPublicOnly>} />
+      <Route path="/forgot-password" element={<PortalPublicOnly><PortalForgotPassword /></PortalPublicOnly>} />
+      <Route path="/reset-password/:token" element={<PortalResetPassword />} />
+
+      <Route
+        path="/portal"
+        element={
+          <ProtectedCustomerRoute>
+            <PortalLayout />
+          </ProtectedCustomerRoute>
+        }
+      >
+        <Route index element={<Navigate to="/portal/dashboard" replace />} />
+        <Route path="dashboard" element={<CustomerDashboard />} />
+        <Route path="products" element={<PortalProducts />} />
+        <Route path="products/:productSlug" element={<PortalProductDetail />} />
+        <Route path="support" element={<PortalSupport />} />
+        <Route path="support/:productSlug/ai" element={<PortalChat mode="ai" />} />
+        <Route path="support/:productSlug/team" element={<PortalChat mode="human" />} />
+        <Route path="conversations" element={<PortalConversations />} />
+        <Route path="profile" element={<PortalProfile />} />
       </Route>
 
       {/* ---------- Admin ---------- */}
@@ -118,13 +198,15 @@ export default function AppRoutes() {
         <Route path="tickets/:ticketId" element={<RequirePermission section="tickets"><TicketDetails /></RequirePermission>} />
         <Route path="marketing" element={<RequirePermission section="marketing"><Marketing /></RequirePermission>} />
         <Route path="announcements" element={<RequirePermission section="announcements"><Announcements /></RequirePermission>} />
+        <Route path="portal-content" element={<RequirePermission section="portal-content"><PortalContent /></RequirePermission>} />
+        <Route path="integrations" element={<RequirePermission section="integrations"><Integrations /></RequirePermission>} />
         <Route path="team" element={<RequirePermission section="team"><Team /></RequirePermission>} />
         <Route path="analytics" element={<RequirePermission section="analytics"><Analytics /></RequirePermission>} />
         <Route path="settings" element={<Settings />} />
       </Route>
 
       {/* ---------- Fallbacks ---------- */}
-      <Route path="/" element={<Navigate to="/admin" replace />} />
+      <Route path="/" element={<RootRedirect />} />
       <Route
         path="*"
         element={

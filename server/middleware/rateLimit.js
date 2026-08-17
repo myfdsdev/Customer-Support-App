@@ -51,4 +51,33 @@ const uploadLimiter = rateLimit({
   message: message('Too many uploads, please wait.'),
 });
 
-module.exports = { apiLimiter, authLimiter, aiLimiter, sessionLimiter, uploadLimiter };
+/**
+ * Payment webhook. Generous enough for a legitimate launch spike (many sales
+ * in a short window) but bounded so a flood of forged IPNs cannot exhaust the
+ * database. Keyed per IP like the rest.
+ */
+const webhookLimiter = rateLimit({
+  ...base,
+  windowMs: 60 * 1000,
+  limit: 120,
+  message: message('Too many webhook requests.'),
+});
+
+/** Brute-force protection for the portal login/registration endpoints. */
+const portalAuthLimiter = rateLimit({
+  ...base,
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  skipSuccessfulRequests: true,
+  message: message('Too many attempts. Please try again in a few minutes.'),
+});
+
+module.exports = {
+  apiLimiter,
+  authLimiter,
+  aiLimiter,
+  sessionLimiter,
+  uploadLimiter,
+  webhookLimiter,
+  portalAuthLimiter,
+};

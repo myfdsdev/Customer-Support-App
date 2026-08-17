@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Inbox, Ticket, Users, Package, BookOpen, GraduationCap,
   Megaphone, Bell, UsersRound, BarChart3, Settings, LogOut, Menu, X, LifeBuoy, ChevronDown,
+  Plug, LayoutGrid,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { conversationService } from '../services/endpoints';
@@ -33,6 +34,13 @@ const NAV = [
     items: [
       { to: '/admin/marketing', label: 'Recommendations', icon: Megaphone, perm: 'marketing' },
       { to: '/admin/announcements', label: 'Announcements', icon: Bell, perm: 'announcements' },
+      { to: '/admin/portal-content', label: 'Portal Content', icon: LayoutGrid, perm: 'portal-content' },
+    ],
+  },
+  {
+    section: 'Portal',
+    items: [
+      { to: '/admin/integrations', label: 'JVZoo & Imports', icon: Plug, perm: 'integrations' },
     ],
   },
   {

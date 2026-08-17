@@ -6,6 +6,7 @@ const {
   Customer,
   CustomerSession,
   AnalyticsEvent,
+  Notification,
 } = require('../../models');
 const {
   CONVERSATION_STATUS,
@@ -176,6 +177,28 @@ async function addMessage({
 
     const updated = await Conversation.findByIdAndUpdate(conversation._id, update, { new: true });
     if (updated) Object.assign(conversation, updated.toObject());
+  }
+
+  // A human agent replying to a customer raises a portal notification — but
+  // only if that customer has a portal account to receive it. Fire-and-forget
+  // and never keyed on a refId, so each distinct reply notifies once.
+  if (!isInternal && senderType === SENDER_TYPE.AGENT && !message.$wasDuplicate) {
+    Customer.findById(conversation.customerId)
+      .select('hasPortalAccount')
+      .lean()
+      .then((cust) => {
+        if (!cust || !cust.hasPortalAccount) return null;
+        return Notification.create({
+          customerId: conversation.customerId,
+          type: 'support_reply',
+          title: 'New reply from our team',
+          body: truncate(toPlain(content), 140),
+          link: '/portal/conversations',
+          conversationId: conversation._id,
+          productId: conversation.productId,
+        });
+      })
+      .catch(() => null);
   }
 
   if (broadcast && !message.$wasDuplicate) {

@@ -2,6 +2,7 @@ import React from 'react';
 import { Loader2, X, Inbox, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import cn from '../../utils/cn';
 import { initials as toInitials } from '../../utils/format';
+import { productLogo } from '../../utils/productLogo';
 
 /* --------------------------------------------------------------------------
  * Primitives shared by the customer and admin surfaces.
@@ -124,6 +125,53 @@ export function Avatar({ name, src, size = 'md', className }) {
     >
       {toInitials(name)}
     </div>
+  );
+}
+
+/**
+ * A product's mark: its uploaded logo, else the icon of its website, else a
+ * fallback on its brand colour.
+ *
+ * Each step falls through on a load error too, so a dead image URL degrades to
+ * the fallback instead of leaving a broken frame.
+ */
+export function ProductLogo({ product, className, rounded = 'rounded-lg', fallback }) {
+  const { src, source } = productLogo(product);
+  const [broken, setBroken] = React.useState(false);
+
+  React.useEffect(() => setBroken(false), [src]);
+
+  const shell = 'flex shrink-0 items-center justify-center overflow-hidden';
+  const background = product?.brandColor || '#1E293B';
+
+  if (!src || broken) {
+    return (
+      <span className={cn(shell, rounded, className)} style={{ backgroundColor: background }}>
+        {fallback || (
+          <span className="text-sm font-bold text-white">{(product?.name || '?').slice(0, 2).toUpperCase()}</span>
+        )}
+      </span>
+    );
+  }
+
+  // Both kinds of mark are contained, never cropped: a logo is artwork whose whole
+  // shape carries the meaning, so `object-cover` would slice the top and bottom off
+  // any logo whose proportions differ from its frame. Whatever the fit leaves over
+  // shows the brand colour.
+  //
+  // The inset is a percentage rather than a padding class because this renders at
+  // everything from a 32px header mark to a 240px tile — a fixed padding that gave
+  // the tile room would swallow the small ones. The favicon sits tighter still: it
+  // is a 32–128px icon, and stretched near the full frame it would only look soft.
+  return (
+    <span className={cn(shell, rounded, className)} style={{ backgroundColor: background }}>
+      <img
+        src={src}
+        alt=""
+        onError={() => setBroken(true)}
+        className={cn('object-contain', source === 'favicon' ? 'h-[55%] w-[55%]' : 'h-[86%] w-[86%]')}
+      />
+    </span>
   );
 }
 
@@ -283,15 +331,49 @@ export function Tabs({ tabs, value, onChange, className }) {
   );
 }
 
-export function StatCard({ label, value, sub, icon: Icon, tone = 'indigo' }) {
-  const tones = {
-    indigo: 'bg-brand-50 text-brand-600',
-    green: 'bg-emerald-50 text-emerald-600',
-    amber: 'bg-amber-50 text-amber-600',
-    red: 'bg-red-50 text-red-600',
-    blue: 'bg-blue-50 text-blue-600',
-    gray: 'bg-ink-100 text-ink-600',
-  };
+const STAT_CHIP_TONES = {
+  indigo: 'bg-brand-50 text-brand-600',
+  green: 'bg-emerald-50 text-emerald-600',
+  amber: 'bg-amber-50 text-amber-600',
+  red: 'bg-red-50 text-red-600',
+  blue: 'bg-blue-50 text-blue-600',
+  gray: 'bg-ink-100 text-ink-600',
+};
+
+const STAT_INK_TONES = {
+  indigo: 'text-brand-600',
+  green: 'text-emerald-500',
+  amber: 'text-amber-500',
+  red: 'text-red-500',
+  blue: 'text-blue-500',
+  gray: 'text-ink-400',
+};
+
+/**
+ * `variant="hero"` is the airier treatment used by the dashboard's summary row:
+ * muted label and a small bare icon on the top line, an oversized value and an
+ * optional accent graphic on the bottom line, in an 18px-radius card.
+ *
+ * The default variant is unchanged, so the stat rows on Analytics, Customer and
+ * Product pages keep the look they already have.
+ */
+export function StatCard({ label, value, sub, icon: Icon, tone = 'indigo', variant = 'plain', spark, sparkAs = 'line' }) {
+  if (variant === 'hero') {
+    return (
+      <div className="flex min-h-[104px] flex-col justify-between rounded-[18px] border border-ink-200 bg-white p-4 shadow-card sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <p className="truncate text-xs font-medium text-ink-500">{label}</p>
+          {Icon && <Icon className={cn('h-4 w-4 shrink-0', STAT_INK_TONES[tone] || STAT_INK_TONES.gray)} />}
+        </div>
+        <div className="mt-3 flex items-end justify-between gap-3">
+          <p className="truncate text-3xl font-bold leading-none tracking-tight text-ink-900">{value}</p>
+          {spark && <Sparkline points={spark} as={sparkAs} className={cn('shrink-0', STAT_INK_TONES[tone])} />}
+        </div>
+        {sub && <p className="mt-2 truncate text-xs text-ink-400">{sub}</p>}
+      </div>
+    );
+  }
+
   return (
     <div className="card p-4">
       <div className="flex items-start justify-between gap-3">
@@ -301,12 +383,56 @@ export function StatCard({ label, value, sub, icon: Icon, tone = 'indigo' }) {
           {sub && <p className="mt-0.5 truncate text-xs text-ink-500">{sub}</p>}
         </div>
         {Icon && (
-          <div className={cn('rounded-lg p-2', tones[tone])}>
+          <div className={cn('rounded-lg p-2', STAT_CHIP_TONES[tone])}>
             <Icon className="h-5 w-5" />
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Accent graphic for `StatCard`. Draws whatever series it is handed and takes its
+ * colour from the parent via `currentColor`; it renders nothing without points,
+ * so a card with no series to show simply has no graphic.
+ */
+function Sparkline({ points, as = 'line', className }) {
+  if (!points?.length) return null;
+
+  const W = 56;
+  const H = 24;
+  const min = Math.min(...points);
+  const span = Math.max(...points) - min || 1;
+  const norm = (v) => (v - min) / span;
+
+  if (as === 'bars') {
+    const bar = W / (points.length * 1.7);
+    const gap = (W - bar * points.length) / Math.max(points.length - 1, 1);
+    return (
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className={className} aria-hidden="true" focusable="false">
+        {points.map((v, i) => {
+          const h = 3 + norm(v) * (H - 3);
+          return (
+            <rect key={i} x={i * (bar + gap)} y={H - h} width={bar} height={h} rx={bar / 2} fill="currentColor" />
+          );
+        })}
+      </svg>
+    );
+  }
+
+  // Quadratic through the midpoints — enough to read as a curve at this size.
+  const pt = points.map((v, i) => [(i / Math.max(points.length - 1, 1)) * W, H - 2 - norm(v) * (H - 4)]);
+  const d = pt.reduce((acc, [x, y], i) => {
+    if (i === 0) return `M${x},${y}`;
+    const [px, py] = pt[i - 1];
+    return `${acc} Q${px},${py} ${(px + x) / 2},${(py + y) / 2}`;
+  }, '') + ` L${pt[pt.length - 1][0]},${pt[pt.length - 1][1]}`;
+
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className={className} aria-hidden="true" focusable="false">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

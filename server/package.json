@@ -11,7 +11,9 @@
     "diagnose": "node scripts/diagnose.js",
     "seed": "node seed/seed.js",
     "seed:fresh": "node seed/seed.js --fresh",
-    "reindex": "node seed/reindex.js"
+    "reindex": "node seed/reindex.js",
+    "verify:portal": "node scripts/verifyPortal.js",
+    "smoke:portal": "node scripts/smokePortal.js"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",

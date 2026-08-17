@@ -70,6 +70,7 @@ const getSupportHome = asyncHandler(async (req, res) => {
         supportEmail: product.supportEmail,
         brandColor: product.brandColor,
         aiWelcomeMessage: product.aiWelcomeMessage,
+        supportPage: product.supportPage,
       },
       announcements,
       videos,

@@ -60,6 +60,104 @@
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 transparent;
   }
+
+  /* ---------------------------------------------------------------------
+     Immersive support theme
+     ---------------------------------------------------------------------
+     The customer-facing welcome and chat screens run full-bleed on a dark
+     stage instead of the light hub layout. These are presentation only —
+     nothing here is aware of products, sessions or messages.
+     ------------------------------------------------------------------ */
+
+  /* Deep navy base with a soft light behind the assistant and a vignette.
+     Every colour is a custom property so a product can restyle the page from
+     the admin panel; the fallbacks are the shipped defaults. */
+  .support-stage {
+    background:
+      radial-gradient(circle at 50% 36%, var(--sp-glow, rgba(60, 110, 180, 0.28)), transparent 42%),
+      radial-gradient(circle at 50% 50%, rgba(3, 12, 28, 0) 55%, rgba(2, 8, 20, 0.6) 100%),
+      linear-gradient(
+        90deg,
+        var(--sp-bg-from, #031126) 0%,
+        var(--sp-bg-mid, #0a2346) 45%,
+        var(--sp-bg-to, #081a37) 100%
+      );
+  }
+
+  /* The faint neon rim around the active chat viewport. Sits on an overlay
+     element so it never clips the content underneath. */
+  .support-frame {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+      inset 0 0 70px rgba(55, 145, 255, 0.09),
+      inset 0 22px 48px -26px var(--sp-accent-glow-a-strong, rgba(255, 153, 102, 0.28)),
+      inset 0 -22px 48px -26px rgba(194, 128, 255, 0.24),
+      inset 22px 0 48px -26px var(--sp-accent-glow-b, rgba(88, 213, 224, 0.16)),
+      inset -22px 0 48px -26px rgba(194, 128, 255, 0.16);
+  }
+
+  /* The accent gradient used by the primary call to action and the send key.
+     The label colour is picked from the gradient's own brightness rather than
+     fixed, so a product that recolours the accent does not end up with white
+     text on a pale button. */
+  .support-cta {
+    background: linear-gradient(90deg, var(--sp-accent-from, #ff8d1f) 0%, var(--sp-accent-to, #59d6df) 100%);
+    box-shadow:
+      0 0 30px var(--sp-accent-glow-b, rgba(88, 213, 224, 0.25)),
+      0 0 24px var(--sp-accent-glow-a, rgba(255, 145, 0, 0.22));
+    color: var(--sp-cta-text, #06182f);
+    transition: box-shadow 200ms ease, transform 200ms ease;
+  }
+  .support-cta:hover:not(:disabled) {
+    box-shadow:
+      0 0 42px var(--sp-accent-glow-b-strong, rgba(88, 213, 224, 0.38)),
+      0 0 34px var(--sp-accent-glow-a-strong, rgba(255, 145, 0, 0.34));
+    transform: translateY(-1px);
+  }
+  .support-cta:disabled {
+    box-shadow: none;
+    filter: grayscale(0.6);
+  }
+
+  /* The floating composer pill. */
+  .support-input-glow {
+    background: var(--sp-input-bg, rgba(255, 255, 255, 0.07));
+    border-color: var(--sp-input-border, rgba(255, 255, 255, 0.1));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 0 26px var(--sp-accent-glow-b, rgba(88, 213, 224, 0.14)),
+      0 0 22px var(--sp-accent-glow-a, rgba(255, 145, 0, 0.1)),
+      0 14px 40px -22px rgba(0, 0, 0, 0.9);
+  }
+  /* The assistant's name on the immersive chat screen. Declared here rather
+     than in the Tailwind theme so it needs no config reload to take effect. */
+  .font-script {
+    font-family: 'Caveat', 'Segoe Script', 'Bradley Hand', cursive;
+  }
+
+  .support-input-text {
+    color: var(--sp-input-text, #ffffff);
+  }
+  .support-input-text::placeholder {
+    color: var(--sp-input-placeholder, rgba(255, 255, 255, 0.4));
+  }
+
+  /* Scrollbar for the dark thread. */
+  .scroll-ghost {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  }
+  .scroll-ghost::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scroll-ghost::-webkit-scrollbar-thumb {
+    @apply rounded-full;
+    background: rgba(255, 255, 255, 0.18);
+  }
+  .scroll-ghost::-webkit-scrollbar-track {
+    background: transparent;
+  }
   .scroll-thin::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -81,4 +179,14 @@
 }
 .prose-chat code {
   @apply rounded bg-ink-100 px-1 py-0.5 font-mono text-[0.85em];
+}
+
+/* Same rules re-pointed for bubbles on the dark stage. Declared after the
+   light rules so the equal-specificity override lands. */
+.prose-chat-dark strong {
+  @apply font-semibold text-white;
+}
+.prose-chat-dark code {
+  @apply rounded px-1 py-0.5 font-mono text-[0.85em] text-cyan-100;
+  background: rgba(255, 255, 255, 0.1);
 }

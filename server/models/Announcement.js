@@ -16,6 +16,23 @@ const announcementSchema = new mongoose.Schema(
     linkUrl: { type: String, default: '' },
     linkText: { type: String, default: '' },
 
+    /* --- customer portal --------------------------------------------- */
+
+    /**
+     * Show this announcement in the portal's "What's New" feed. Off by
+     * default so existing operational notices (maintenance windows aimed at
+     * support staff) do not suddenly appear on every customer's dashboard.
+     */
+    showInPortal: { type: Boolean, default: false, index: true },
+    /** Card art for the What's New grid. */
+    imageUrl: { type: String, default: '', trim: true },
+    /** Restrict to owners of the product. Only meaningful when productId is set. */
+    ownersOnly: { type: Boolean, default: false },
+    /** Raise a bell notification for eligible customers when first published. */
+    notifyCustomers: { type: Boolean, default: false },
+    notificationsSentAt: { type: Date, default: null },
+    displayOrder: { type: Number, default: 0 },
+
     startAt: { type: Date, default: Date.now, index: true },
     endAt: { type: Date, default: null, index: true },
     active: { type: Boolean, default: true, index: true },

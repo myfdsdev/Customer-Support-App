@@ -7,10 +7,10 @@ const AuthContext = createContext(null);
 
 /** Role -> which admin sections are reachable. Mirrors the server's rules. */
 const PERMISSIONS = {
-  super_admin: ['dashboard', 'inbox', 'tickets', 'customers', 'products', 'knowledge', 'training', 'marketing', 'announcements', 'team', 'analytics', 'settings'],
-  support_manager: ['dashboard', 'inbox', 'tickets', 'customers', 'products', 'knowledge', 'training', 'announcements', 'team', 'analytics', 'settings'],
+  super_admin: ['dashboard', 'inbox', 'tickets', 'customers', 'products', 'knowledge', 'training', 'marketing', 'announcements', 'team', 'analytics', 'settings', 'integrations', 'portal-content'],
+  support_manager: ['dashboard', 'inbox', 'tickets', 'customers', 'products', 'knowledge', 'training', 'announcements', 'team', 'analytics', 'settings', 'portal-content'],
   support_agent: ['inbox', 'tickets', 'customers', 'knowledge', 'training', 'settings'],
-  marketing_manager: ['marketing', 'announcements', 'analytics', 'settings'],
+  marketing_manager: ['marketing', 'announcements', 'analytics', 'settings', 'portal-content'],
 };
 
 export function AuthProvider({ children }) {

@@ -1,13 +1,34 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Users, MessageSquare, Inbox, Ticket, Package, UserCheck, Timer, CheckCircle2,
-  Bot, ArrowUpRight, Sparkles, AlertCircle,
+  Users, MessageSquare, Inbox, Ticket, Bot, ChevronRight, ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { dashboardService } from '../../services/endpoints';
-import { StatCard, Spinner, Badge, PresenceDot, Avatar, EmptyState, Alert } from '../../components/ui';
-import { duration, shortTime, humanize } from '../../utils/format';
+import { StatCard, Spinner, Badge, PresenceDot, Avatar, Alert, ProductLogo } from '../../components/ui';
+import { shortTime, humanize } from '../../utils/format';
+import cn from '../../utils/cn';
+
+/**
+ * ORNAMENT, NOT DATA.
+ *
+ * The summary cards carry a small accent graphic in the style of the reference
+ * design. `/dashboard/stats` returns point-in-time counts with no history, so
+ * there is no real series to plot and these shapes mean nothing — they are fixed
+ * squiggles, identical on every load, and they never change with the numbers
+ * beside them.
+ *
+ * They are deliberately wordless for that reason: a "+3.2%" chip would read as a
+ * measured trend, which this would not be. If a time series ever becomes
+ * available, pass it as `spark` and the accent turns into a real sparkline with
+ * no other change. To drop the accents entirely, remove the `spark` props.
+ */
+const ACCENT = {
+  customersOnline: [3, 5, 4, 7, 6, 9, 7, 8],
+  activeChats: [4, 3, 6, 5, 8, 7, 10, 9],
+  openTickets: [6, 4, 7, 5, 8, 6, 9, 7],
+  aiResolution: [2, 4, 3, 6, 5, 8, 7, 9],
+};
 
 export default function Dashboard() {
   const { socket, user } = useAuth();
@@ -45,6 +66,7 @@ export default function Dashboard() {
   if (loading) return <Spinner className="py-24" label="Loading dashboard…" />;
 
   const { live, analytics, system } = data;
+  const products = breakdown.map((row) => row.product);
 
   return (
     <div className="p-4 sm:p-6">
@@ -66,162 +88,266 @@ export default function Dashboard() {
       )}
 
       {/* Live counters */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-        <StatCard label="Customers online" value={live.customersOnline} icon={Users} tone="green" />
-        <StatCard label="Active chats" value={live.activeConversations} icon={MessageSquare} tone="indigo" />
-        <StatCard label="Unassigned" value={live.unassignedConversations} icon={Inbox} tone={live.unassignedConversations ? 'amber' : 'gray'} />
-        <StatCard label="Open tickets" value={live.openTickets} icon={Ticket} tone="blue" />
-        <StatCard label="Total customers" value={live.totalCustomers} icon={UserCheck} tone="gray" />
-        <StatCard label="Products" value={live.totalProducts} icon={Package} tone="gray" />
-      </div>
-
-      {/* Support quality */}
-      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
-          label="Avg response"
-          value={analytics.avgResponseTimeSeconds ? duration(analytics.avgResponseTimeSeconds) : '—'}
-          sub="First agent reply"
-          icon={Timer}
-          tone="blue"
+          label="Customers online"
+          value={live.customersOnline}
+          icon={Users}
+          tone="indigo"
+          variant="hero"
+          spark={ACCENT.customersOnline}
+          sparkAs="bars"
         />
         <StatCard
-          label="Avg resolution"
-          value={analytics.avgResolutionTimeSeconds ? duration(analytics.avgResolutionTimeSeconds) : '—'}
-          sub={`Last ${analytics.rangeDays} days`}
-          icon={CheckCircle2}
-          tone="green"
+          label="Active chats"
+          value={live.activeConversations}
+          icon={MessageSquare}
+          tone="indigo"
+          variant="hero"
+          spark={ACCENT.activeChats}
         />
-        <StatCard label="AI resolution" value={`${analytics.aiResolutionRate}%`} sub="Solved without a human" icon={Bot} tone="indigo" />
-        <StatCard label="Human resolution" value={`${analytics.humanResolutionRate}%`} icon={UserCheck} tone="gray" />
-        <StatCard label="Escalation rate" value={`${analytics.escalationRate}%`} sub="Handed to the team" icon={ArrowUpRight} tone={analytics.escalationRate > 50 ? 'amber' : 'gray'} />
+        <StatCard
+          label="Open tickets"
+          value={live.openTickets}
+          icon={Ticket}
+          tone="indigo"
+          variant="hero"
+          spark={ACCENT.openTickets}
+          sparkAs="bars"
+        />
+        <StatCard
+          label="AI resolution"
+          value={`${analytics.aiResolutionRate}%`}
+          icon={Bot}
+          tone="indigo"
+          variant="hero"
+          spark={ACCENT.aiResolution}
+        />
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-3">
-        {/* Product breakdown */}
-        <div className="card lg:col-span-2">
-          <div className="border-b border-ink-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-ink-900">By product</h2>
-          </div>
-          <div className="divide-y divide-ink-100">
-            {breakdown.length === 0 && <EmptyState icon={Package} title="No products yet" description="Create a product to give it a support page." />}
-            {breakdown.map((row) => (
-              <Link
-                key={row.product._id}
-                to={`/admin/products/${row.product._id}`}
-                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-ink-50"
-              >
-                <div
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
-                  style={{ background: row.product.brandColor || '#1E293B' }}
-                >
-                  {row.product.name.slice(0, 2).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink-900">{row.product.name}</p>
-                  <p className="truncate text-xs text-ink-500">/support/{row.product.slug}</p>
-                </div>
-                <div className="hidden gap-6 text-right sm:flex">
-                  <div>
-                    <p className="text-sm font-semibold text-ink-900">{row.conversations}</p>
-                    <p className="text-[11px] text-ink-500">chats</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-ink-900">{row.open}</p>
-                    <p className="text-[11px] text-ink-500">open</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-emerald-600">{row.aiResolutionRate}%</p>
-                    <p className="text-[11px] text-ink-500">AI solved</p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Agents online */}
-        <div className="card">
-          <div className="border-b border-ink-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-ink-900">Team online</h2>
-          </div>
-          <div className="divide-y divide-ink-100">
-            {live.agentsOnline.length === 0 && (
-              <p className="px-4 py-6 text-center text-sm text-ink-500">Nobody is online right now.</p>
-            )}
-            {live.agentsOnline.map((a) => (
-              <div key={a._id} className="flex items-center gap-3 px-4 py-2.5">
-                <Avatar name={a.name} src={a.avatar} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink-900">{a.name}</p>
-                  <p className="text-xs text-ink-500">{humanize(a.role)}</p>
-                </div>
-                <PresenceDot status="online" />
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Products — mark and name only. Per-product counts are on each product's page.
+          `See more` moves up beside the heading so the row below stays a clean
+          run of equally sized product tiles. */}
+      <div className="mb-3 mt-6 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-ink-900">Products</h2>
+        <Link
+          to="/admin/products"
+          className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800"
+        >
+          See more <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        {/* Recent conversations */}
-        <div className="card">
-          <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-ink-900">Recent conversations</h2>
-            <Link to="/admin/inbox" className="text-xs font-medium text-brand-700 hover:text-brand-800">
-              View inbox
-            </Link>
-          </div>
+      <div className="flex flex-wrap gap-4">
+        {products.length === 0 && (
+          <p className="text-sm text-ink-500">No products yet. Create one to give it a support page.</p>
+        )}
+        {products.slice(0, 5).map((p) => (
+          <ProductTile key={p._id} product={p} />
+        ))}
+      </div>
+
+      {/* Team — same shape as Products above: a bare heading over a wrapping row of
+          fixed-width tiles, with no card wrapped around the section itself. */}
+      <h2 className="mb-3 mt-6 text-sm font-semibold text-ink-900">Team online</h2>
+
+      <div className="flex flex-wrap items-stretch gap-[14px]">
+        {live.agentsOnline.length === 0 ? (
+          <p className="text-sm text-ink-500">Nobody is online right now — presence updates as the team signs in.</p>
+        ) : (
+          live.agentsOnline.map((a) => <TeamCard key={a._id} agent={a} />)
+        )}
+      </div>
+
+      <Panel
+        title="Recent conversations"
+        action={<PanelLink to="/admin/inbox">View all</PanelLink>}
+        className="mt-6"
+      >
+        {recent.conversations.length === 0 ? (
+          <RowShell>
+            <Row
+              leading={<IconMark icon={MessageSquare} />}
+              title="Nothing waiting"
+              subtitle="New conversations arrive here in real time."
+            />
+          </RowShell>
+        ) : (
           <div className="divide-y divide-ink-100">
-            {recent.conversations.length === 0 && (
-              <EmptyState icon={MessageSquare} title="Nothing waiting" description="New conversations will appear here in real time." />
-            )}
             {recent.conversations.map((c) => (
-              <Link key={c._id} to={`/admin/inbox/${c._id}`} className="block px-4 py-3 transition-colors hover:bg-ink-50">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-medium text-ink-900">
-                    {c.customerId?.name || c.customerId?.email || 'Anonymous visitor'}
-                  </p>
-                  <Badge tone="gray">{c.productId?.name}</Badge>
-                  {!c.assignedAgentId && <Badge tone="amber">Unassigned</Badge>}
-                  {c.priority === 'urgent' && <Badge tone="red">Urgent</Badge>}
-                  <span className="ml-auto shrink-0 text-xs text-ink-400">{shortTime(c.lastMessageAt)}</span>
-                </div>
-                <p className="mt-0.5 truncate text-xs text-ink-500">{c.lastMessagePreview || 'No messages yet'}</p>
-              </Link>
+              <RowShell key={c._id}>
+                <ConversationRow conversation={c} />
+              </RowShell>
             ))}
           </div>
-        </div>
+        )}
+      </Panel>
+    </div>
+  );
+}
 
-        {/* Tickets needing attention */}
-        <div className="card">
-          <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-ink-900">Tickets needing attention</h2>
-            <Link to="/admin/tickets" className="text-xs font-medium text-brand-700 hover:text-brand-800">
-              All tickets
-            </Link>
-          </div>
-          <div className="divide-y divide-ink-100">
-            {recent.tickets.length === 0 && (
-              <EmptyState icon={Sparkles} title="No open tickets" description="Tickets are only created when something needs investigation." />
-            )}
-            {recent.tickets.map((t) => (
-              <Link key={t._id} to={`/admin/tickets/${t._id}`} className="block px-4 py-3 transition-colors hover:bg-ink-50">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs text-ink-400">{t.ticketNumber}</span>
-                  <p className="truncate text-sm font-medium text-ink-900">{t.title}</p>
-                  <Badge tone={t.priority === 'urgent' ? 'red' : t.priority === 'high' ? 'amber' : 'gray'} className="ml-auto shrink-0">
-                    {t.priority}
-                  </Badge>
-                </div>
-                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-500">
-                  <AlertCircle className="h-3 w-3" />
-                  {humanize(t.status)} · {t.productId?.name}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </div>
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Product tile: inset image on top, name and a link pill underneath.
+ *
+ * Two destinations in one card, so they cannot be nested anchors: the card body
+ * keeps its existing navigation to the product's admin page via a stretched link,
+ * and the pill — which opens the product's public support site — sits above it on
+ * `z-10` so its own click wins.
+ */
+function ProductTile({ product }) {
+  return (
+    <div className="group relative flex w-[240px] max-w-full flex-col rounded-[18px] border border-ink-200 bg-white p-1.5 shadow-card transition-colors hover:border-brand-300">
+      <ProductLogo
+        product={product}
+        rounded="rounded-[13px]"
+        className="h-[108px] w-full"
+        fallback={
+          <span className="text-2xl font-bold tracking-tight text-white/90">
+            {product.name.slice(0, 2).toUpperCase()}
+          </span>
+        }
+      />
+
+      <div className="flex items-center justify-between gap-2 px-1.5 py-2">
+        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-900">{product.name}</p>
+        {product.slug && (
+          <a
+            href={`/support/${product.slug}`}
+            target="_blank"
+            rel="noreferrer"
+            className="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-600 px-2.5 py-1 text-[12px] font-semibold text-ink-900 transition-colors hover:bg-brand-500"
+          >
+            Open <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </div>
+
+      <Link
+        to={`/admin/products/${product._id}`}
+        className="absolute inset-0 rounded-[18px]"
+        aria-label={product.name}
+      />
+    </div>
+  );
+}
+
+function Panel({ title, action, className, children }) {
+  // 18px radius rather than the shared `.card` 12px, so these sit in the same
+  // visual family as the hero stat cards above them.
+  return (
+    <div className={cn('rounded-[18px] border border-ink-200 bg-white shadow-card', className)}>
+      <div className="flex h-12 items-center justify-between border-b border-ink-200 px-4">
+        <h2 className="text-sm font-semibold text-ink-900">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+const PanelLink = ({ to, children }) => (
+  <Link to={to} className="text-xs font-medium text-brand-700 hover:text-brand-800">
+    {children}
+  </Link>
+);
+
+/** The padding every panel row sits in. */
+function RowShell({ children }) {
+  return <div className="px-4 py-3">{children}</div>;
+}
+
+/** Leading mark, two lines, optional meta — the shape shared by every row. */
+function Row({ leading, title, subtitle, meta, to }) {
+  const inner = (
+    <>
+      {leading}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 truncate text-sm font-medium text-ink-900">{title}</div>
+        <div className="truncate text-xs text-ink-500">{subtitle}</div>
+      </div>
+      {meta && <div className="flex shrink-0 items-center gap-2">{meta}</div>}
+    </>
+  );
+
+  return to ? (
+    <Link to={to} className="flex items-center gap-3">
+      {inner}
+    </Link>
+  ) : (
+    <div className="flex items-center gap-3">{inner}</div>
+  );
+}
+
+/** 32px, matching Avatar `sm`, so text columns line up across all three panels. */
+const IconMark = ({ icon: Icon, tone = 'gray' }) => (
+  <span
+    className={cn(
+      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+      tone === 'brand' ? 'bg-brand-50 text-brand-700' : 'bg-ink-100 text-ink-400'
+    )}
+  >
+    <Icon className="h-4 w-4" />
+  </span>
+);
+
+/* --- row bodies ----------------------------------------------------------- */
+
+const customerName = (c) => c.customerId?.name || c.customerId?.email || 'Anonymous visitor';
+
+function ConversationRow({ conversation: c }) {
+  return (
+    <Row
+      to={`/admin/inbox/${c._id}`}
+      leading={<Avatar name={customerName(c)} size="sm" />}
+      title={
+        <>
+          <span className="truncate">{customerName(c)}</span>
+          {c.productId?.name && <Badge tone="indigo">{c.productId.name}</Badge>}
+        </>
+      }
+      subtitle={c.lastMessagePreview || 'No messages yet'}
+      meta={
+        // Status and assignment used to sit on a second band under the row. The
+        // card now has the width to carry them on the row itself.
+        <>
+          {c.priority === 'urgent' && <Badge tone="red">Urgent</Badge>}
+          <Badge tone="gray">{humanize(c.status)}</Badge>
+          {c.assignedAgentId ? (
+            <span className="hidden text-[11px] text-ink-400 sm:inline">{c.assignedAgentId.name}</span>
+          ) : (
+            <Badge tone="amber">Unassigned</Badge>
+          )}
+          <span className="w-14 text-right text-xs text-ink-400">{shortTime(c.lastMessageAt)}</span>
+        </>
+      }
+    />
+  );
+}
+
+/**
+ * A teammate as a centred tile: avatar with its presence dot, name, role.
+ *
+ * The reference design carries a strip of social links along the bottom; agents
+ * have no such field, so rather than invent one the presence dot does that work.
+ */
+function TeamCard({ agent: a }) {
+  return (
+    <div className="flex min-h-[88px] w-[240px] max-w-full items-center gap-[14px] rounded-2xl border border-ink-200 bg-white px-4 py-3.5 shadow-card">
+      <div className="relative shrink-0">
+        {/* 48px sits between Avatar's md and lg steps; `!` wins because `cn` is
+            clsx, which concatenates rather than resolving class conflicts. */}
+        <Avatar name={a.name} src={a.avatar} size="md" className="!h-12 !w-12" />
+        <span className="absolute bottom-0 right-0 rounded-full bg-white p-[2px]">
+          <PresenceDot status="online" />
+        </span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-ink-900">{a.name}</p>
+        <p className="truncate text-xs text-ink-500">{humanize(a.role)}</p>
       </div>
     </div>
   );
 }
+

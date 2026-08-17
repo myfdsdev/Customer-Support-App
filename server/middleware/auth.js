@@ -3,7 +3,7 @@
 const ApiError = require('../utils/ApiError');
 const asyncHandler = require('../utils/asyncHandler');
 const { verifyToken, AUD_STAFF, AUD_SUPPORT } = require('../utils/tokens');
-const { GLOBAL_ROLES, AGENT_ROLES, ROLES } = require('../utils/constants');
+const { GLOBAL_ROLES, AGENT_ROLES, ROLES, roleHasCapability } = require('../utils/constants');
 const { User, ProductAgent, Product, CustomerSession } = require('../models');
 
 function extractToken(req) {
@@ -48,6 +48,19 @@ const requireAdmin = requireRole(ROLES.SUPER_ADMIN);
 const requireManager = requireRole(ROLES.SUPER_ADMIN, ROLES.SUPPORT_MANAGER);
 const requireAgent = requireRole(...AGENT_ROLES);
 const requireMarketing = requireRole(ROLES.SUPER_ADMIN, ROLES.MARKETING_MANAGER);
+
+/**
+ * Capability gate. Prefer this over enumerating roles for the new
+ * integration/portal-content/product surfaces, so that adding a capability to
+ * a role is a one-line change in constants rather than an edit across routes.
+ */
+const requireCapability = (capability) => (req, _res, next) => {
+  if (!req.user) return next(ApiError.unauthorized());
+  if (!roleHasCapability(req.user.role, capability)) {
+    return next(ApiError.forbidden(`This action requires the "${capability}" capability`));
+  }
+  return next();
+};
 
 /**
  * Confirms the staff user may act on the product referenced by the request.
@@ -128,6 +141,7 @@ module.exports = {
   requireManager,
   requireAgent,
   requireMarketing,
+  requireCapability,
   validateProductAccess,
   accessibleProductIds,
   authenticateSupportSession,

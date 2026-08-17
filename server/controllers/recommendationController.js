@@ -3,7 +3,8 @@
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { Recommendation } = require('../models');
-const { RECOMMENDATION_PLACEMENTS } = require('../utils/constants');
+const { RECOMMENDATION_PLACEMENTS, RECOMMENDATION_BADGES } = require('../utils/constants');
+const { sanitizeText, sanitizeUrl } = require('../utils/sanitize');
 
 /** GET /api/recommendations */
 const listRecommendations = asyncHandler(async (req, res) => {
@@ -40,13 +41,13 @@ const createRecommendation = asyncHandler(async (req, res) => {
   }
 
   const recommendation = await Recommendation.create({
-    name,
+    name: sanitizeText(name, 120),
     promotedProductId,
-    title,
-    description: req.body.description || '',
-    imageUrl: req.body.imageUrl || '',
-    ctaText: req.body.ctaText || 'Learn more',
-    ctaUrl: req.body.ctaUrl || '',
+    title: sanitizeText(title, 200),
+    description: sanitizeText(req.body.description || '', 1000),
+    imageUrl: sanitizeUrl(req.body.imageUrl || ''),
+    ctaText: sanitizeText(req.body.ctaText || 'Learn more', 60),
+    ctaUrl: sanitizeUrl(req.body.ctaUrl || ''),
     sourceProducts: parseList(req.body.sourceProducts),
     placement: RECOMMENDATION_PLACEMENTS.includes(req.body.placement) ? req.body.placement : 'support_homepage',
     triggerKeywords: parseList(req.body.triggerKeywords),
@@ -54,6 +55,13 @@ const createRecommendation = asyncHandler(async (req, res) => {
     endAt: req.body.endAt || null,
     frequencyLimit: Number(req.body.frequencyLimit) || 1,
     active: req.body.active !== undefined ? Boolean(req.body.active) : true,
+    // Portal targeting.
+    badge: RECOMMENDATION_BADGES.includes(req.body.badge) ? req.body.badge : 'Recommended',
+    excludeExistingOwners: req.body.excludeExistingOwners !== undefined ? Boolean(req.body.excludeExistingOwners) : true,
+    targetProducts: parseList(req.body.targetProducts),
+    targetSegments: parseList(req.body.targetSegments),
+    internalDestination: sanitizeUrl(req.body.internalDestination, { allowRelative: true }),
+    displayOrder: Number(req.body.displayOrder) || 0,
   });
 
   res.status(201).json({ success: true, data: recommendation });
@@ -64,9 +72,13 @@ const updateRecommendation = asyncHandler(async (req, res) => {
   const rec = await Recommendation.findById(req.params.id);
   if (!rec) throw ApiError.notFound('Recommendation not found');
 
-  ['name', 'title', 'description', 'imageUrl', 'ctaText', 'ctaUrl', 'promotedProductId'].forEach((f) => {
-    if (req.body[f] !== undefined) rec[f] = req.body[f];
-  });
+  if (req.body.promotedProductId !== undefined) rec.promotedProductId = req.body.promotedProductId;
+  if (req.body.name !== undefined) rec.name = sanitizeText(req.body.name, 120);
+  if (req.body.title !== undefined) rec.title = sanitizeText(req.body.title, 200);
+  if (req.body.description !== undefined) rec.description = sanitizeText(req.body.description, 1000);
+  if (req.body.ctaText !== undefined) rec.ctaText = sanitizeText(req.body.ctaText, 60);
+  if (req.body.imageUrl !== undefined) rec.imageUrl = sanitizeUrl(req.body.imageUrl);
+  if (req.body.ctaUrl !== undefined) rec.ctaUrl = sanitizeUrl(req.body.ctaUrl);
   if (req.body.sourceProducts !== undefined) rec.sourceProducts = parseList(req.body.sourceProducts);
   if (req.body.triggerKeywords !== undefined) rec.triggerKeywords = parseList(req.body.triggerKeywords);
   if (req.body.placement !== undefined && RECOMMENDATION_PLACEMENTS.includes(req.body.placement)) {
@@ -76,6 +88,12 @@ const updateRecommendation = asyncHandler(async (req, res) => {
   if (req.body.endAt !== undefined) rec.endAt = req.body.endAt || null;
   if (req.body.frequencyLimit !== undefined) rec.frequencyLimit = Number(req.body.frequencyLimit) || 1;
   if (req.body.active !== undefined) rec.active = Boolean(req.body.active);
+  if (req.body.badge !== undefined && RECOMMENDATION_BADGES.includes(req.body.badge)) rec.badge = req.body.badge;
+  if (req.body.excludeExistingOwners !== undefined) rec.excludeExistingOwners = Boolean(req.body.excludeExistingOwners);
+  if (req.body.targetProducts !== undefined) rec.targetProducts = parseList(req.body.targetProducts);
+  if (req.body.targetSegments !== undefined) rec.targetSegments = parseList(req.body.targetSegments);
+  if (req.body.internalDestination !== undefined) rec.internalDestination = sanitizeUrl(req.body.internalDestination, { allowRelative: true });
+  if (req.body.displayOrder !== undefined) rec.displayOrder = Number(req.body.displayOrder) || 0;
 
   await rec.save();
   res.json({ success: true, data: rec });
