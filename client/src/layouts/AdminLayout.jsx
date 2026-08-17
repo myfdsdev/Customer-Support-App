@@ -40,7 +40,7 @@ const NAV = [
   {
     section: 'Portal',
     items: [
-      { to: '/admin/integrations', label: 'JVZoo & Imports', icon: Plug, perm: 'integrations' },
+      { to: '/admin/integrations/jvzoo', label: 'JVZoo Integration', icon: Plug, perm: 'integrations' },
     ],
   },
   {

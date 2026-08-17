@@ -63,6 +63,12 @@ const env = {
   jvzoo: {
     ipnSecret: process.env.JVZOO_IPN_SECRET || '',
     webhookEnabled: bool(process.env.JVZOO_WEBHOOK_ENABLED, false),
+    /**
+     * Production gate. Stays false until the operator has validated JVZoo's
+     * verification scheme against a real test IPN. While false the verifier
+     * returns BLOCKED and no event can grant access — see jvzooVerifier.js.
+     */
+    verificationConfirmed: bool(process.env.JVZOO_VERIFICATION_CONFIRMED, false),
     get configured() {
       return Boolean(process.env.JVZOO_IPN_SECRET);
     },

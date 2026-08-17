@@ -1,0 +1,47 @@
+{
+  "_note": "MOCK / illustrative JVZoo IPN payload — NOT an official sample. No real official JVZoo IPN documentation or a real sanitized test notification was supplied with this project. Field names follow JVZoo's long-published format and MUST be confirmed against a real test IPN before production (see server/services/integrations/jvzooVerifier.js). `cverify` here is a placeholder; the real value is computed from the fields + your JVZOO_IPN_SECRET.",
+  "sale": {
+    "ccustname": "Jane Doe",
+    "ccustemail": "jane@example.com",
+    "cproditem": "FE-100",
+    "cprodtitle": "AppFieldsAI Front End",
+    "ctransaction": "SALE",
+    "ctransreceipt": "JV-TXN-000123",
+    "ctransamount": "27.00",
+    "ccurrency": "USD",
+    "cvendthru": "seller",
+    "cverify": "PLACEHOLDER"
+  },
+  "upsell": {
+    "ccustname": "Jane Doe",
+    "ccustemail": "jane@example.com",
+    "cproditem": "OTO-101",
+    "cprodtitle": "AppFieldsAI Pro Upgrade",
+    "ctransaction": "UPSELL",
+    "ctransreceipt": "JV-TXN-000124",
+    "cupsellreceipt": "JV-TXN-000123",
+    "ctransamount": "47.00",
+    "ccurrency": "USD",
+    "cverify": "PLACEHOLDER"
+  },
+  "refund": {
+    "ccustname": "Jane Doe",
+    "ccustemail": "jane@example.com",
+    "cproditem": "FE-100",
+    "ctransaction": "REFUND",
+    "ctransreceipt": "JV-TXN-000123",
+    "ctransamount": "27.00",
+    "ccurrency": "USD",
+    "cverify": "PLACEHOLDER"
+  },
+  "chargeback": {
+    "ccustname": "Jane Doe",
+    "ccustemail": "jane@example.com",
+    "cproditem": "FE-100",
+    "ctransaction": "CGBK",
+    "ctransreceipt": "JV-TXN-000123",
+    "ctransamount": "27.00",
+    "ccurrency": "USD",
+    "cverify": "PLACEHOLDER"
+  }
+}

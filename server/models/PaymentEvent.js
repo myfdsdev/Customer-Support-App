@@ -8,6 +8,8 @@ const {
   PAYMENT_EVENT_TYPE_LIST,
   VERIFICATION_STATUS,
   VERIFICATION_STATUS_LIST,
+  PROCESSING_STATUS,
+  PROCESSING_STATUS_LIST,
 } = require('../utils/constants');
 
 /**
@@ -43,7 +45,8 @@ const paymentEventSchema = new mongoose.Schema(
 
     transactionId: { type: String, default: '', index: true },
     parentTransactionId: { type: String, default: '', index: true },
-    productExternalId: { type: String, default: '', index: true },
+    /** The JVZoo product id (`cproditem`). */
+    externalProductId: { type: String, default: '', index: true },
 
     customerEmail: { type: String, default: '', lowercase: true, trim: true, index: true },
     customerName: { type: String, default: '' },
@@ -60,24 +63,36 @@ const paymentEventSchema = new mongoose.Schema(
       index: true,
     },
 
+    /**
+     * Processing lifecycle, independent of verification. `pending_mapping`
+     * means verified-but-no-internal-product; drives the admin "Unmapped
+     * events" screen. `processed` is the terminal success state.
+     */
+    processingStatus: {
+      type: String,
+      enum: PROCESSING_STATUS_LIST,
+      default: PROCESSING_STATUS.RECEIVED,
+      index: true,
+    },
+    /** Convenience boolean mirroring processingStatus === 'processed'. */
     processed: { type: Boolean, default: false, index: true },
     processedAt: { type: Date, default: null },
     failureReason: { type: String, default: '' },
-
-    /**
-     * Why an otherwise-valid event granted nothing: usually the external
-     * product id is not mapped to any internal Product yet. Drives the admin
-     * "Unmapped events" screen.
-     */
-    pendingMapping: { type: Boolean, default: false, index: true },
 
     /** Resolved links, filled in once processing succeeds. */
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', default: null },
     productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', default: null },
 
     /**
-     * The request as received, with secrets removed. Never contains the IPN
-     * secret, card data or full addresses — see jvzooService.redactPayload.
+     * SHA-256 of the raw request body — a tamper-evident fingerprint that lets
+     * an admin confirm two events are byte-identical without storing the raw
+     * payload or any secret.
+     */
+    payloadHash: { type: String, default: '' },
+    /**
+     * The request as received, with secrets and payment-sensitive fields
+     * removed — see jvzooService.redactPayload. Never the IPN secret, card
+     * data or full addresses.
      */
     redactedPayload: { type: mongoose.Schema.Types.Mixed, default: {} },
     /** Request metadata useful for abuse investigation. Not the raw IP. */
@@ -87,7 +102,7 @@ const paymentEventSchema = new mongoose.Schema(
     },
 
     /** How many times processing has been attempted (webhook + admin retries). */
-    attempts: { type: Number, default: 0 },
+    retryCount: { type: Number, default: 0 },
     receivedAt: { type: Date, default: Date.now, index: true },
   },
   { timestamps: true }
@@ -102,7 +117,7 @@ paymentEventSchema.index(
   { unique: true, name: 'payment_event_idempotency' }
 );
 paymentEventSchema.index({ provider: 1, transactionId: 1, eventType: 1 });
-paymentEventSchema.index({ pendingMapping: 1, receivedAt: -1 });
-paymentEventSchema.index({ processed: 1, receivedAt: -1 });
+paymentEventSchema.index({ processingStatus: 1, receivedAt: -1 });
+paymentEventSchema.index({ verificationStatus: 1, receivedAt: -1 });
 
 module.exports = mongoose.model('PaymentEvent', paymentEventSchema);

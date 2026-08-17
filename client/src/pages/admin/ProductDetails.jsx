@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Save, Trash2, Users, BookOpen, GraduationCap, MessageSquare, FlaskConical } from 'lucide-react';
-import { productService, authService, knowledgeService } from '../../services/endpoints';
+import { ArrowLeft, ExternalLink, Save, Trash2, Users, BookOpen, GraduationCap, MessageSquare, FlaskConical, Plus } from 'lucide-react';
+import { productService, authService, knowledgeService, integrationService } from '../../services/endpoints';
 import { productHost } from '../../utils/productLogo';
 import { SUPPORT_THEME_DEFAULTS, resolveSupportTheme } from '../../utils/supportTheme';
 import { useToast } from '../../context/ToastContext';
@@ -24,6 +24,7 @@ export default function ProductDetails() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [ipnUrl, setIpnUrl] = useState('');
 
   // Retrieval tester — the fastest way to debug a bad AI answer.
   const [testQuestion, setTestQuestion] = useState('');
@@ -49,7 +50,18 @@ export default function ProductDetails() {
       featured: Boolean(data.featured),
       dashboardVisibility: data.dashboardVisibility || 'owners',
       sortOrder: data.sortOrder || 0,
-      jvzooProductIds: (data.jvzooProductIds || []).join(', '),
+      // Structured JVZoo mappings. Legacy flat ids (if any) are surfaced as
+      // read-only fe mappings so nothing is silently dropped on save.
+      jvzooMappings:
+        (data.jvzooMappings && data.jvzooMappings.length
+          ? data.jvzooMappings
+          : (data.jvzooProductIds || []).map((id) => ({ externalProductId: id, offerType: 'fe', accessPlan: '', active: true }))
+        ).map((m) => ({
+          externalProductId: m.externalProductId || '',
+          offerType: m.offerType || 'fe',
+          accessPlan: m.accessPlan || '',
+          active: m.active !== false,
+        })),
       portalPage: {
         heroTitle: data.portalPage?.heroTitle || '',
         heroSubtitle: data.portalPage?.heroSubtitle || '',
@@ -68,6 +80,10 @@ export default function ProductDetails() {
     Promise.all([load(), authService.listAgents().then(setAgents).catch(() => null)])
       .catch((err) => toast.error(err.friendlyMessage))
       .finally(() => setLoading(false));
+    // The IPN URL comes from the backend (its own host), only for integrations admins.
+    if (can('integrations')) {
+      integrationService.status().then((s) => setIpnUrl(s?.jvzoo?.ipnUrl || '')).catch(() => null);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
@@ -86,17 +102,20 @@ export default function ProductDetails() {
   async function save() {
     setSaving(true);
     try {
-      // jvzooProductIds is edited as a comma-separated string; the API wants an
-      // array. Mapping is an integrations action, so it is only ever included
-      // when this user holds that capability — sending it otherwise would be
-      // rejected server-side and block the whole save.
+      // Editing JVZoo mappings is an integrations action, so it is only ever
+      // included when this user holds that capability — sending it otherwise
+      // would be rejected server-side and block the whole save.
       const payload = { ...form };
-      delete payload.jvzooProductIds;
+      delete payload.jvzooMappings;
       if (can('integrations')) {
-        payload.jvzooProductIds = String(form.jvzooProductIds || '')
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
+        payload.jvzooMappings = (form.jvzooMappings || [])
+          .map((m) => ({
+            externalProductId: String(m.externalProductId || '').trim(),
+            offerType: m.offerType || 'fe',
+            accessPlan: String(m.accessPlan || '').trim(),
+            active: m.active !== false,
+          }))
+          .filter((m) => m.externalProductId);
       }
       await productService.update(productId, payload);
       toast.success('Product updated');
@@ -110,6 +129,20 @@ export default function ProductDetails() {
 
   const changePortal = (key, value) =>
     setForm((f) => ({ ...f, portalPage: { ...f.portalPage, [key]: value } }));
+
+  /* JVZoo mapping row helpers. */
+  const addMapping = () =>
+    setForm((f) => ({
+      ...f,
+      jvzooMappings: [...(f.jvzooMappings || []), { externalProductId: '', offerType: 'fe', accessPlan: '', active: true }],
+    }));
+  const changeMapping = (idx, key, value) =>
+    setForm((f) => ({
+      ...f,
+      jvzooMappings: f.jvzooMappings.map((m, i) => (i === idx ? { ...m, [key]: value } : m)),
+    }));
+  const removeMapping = (idx) =>
+    setForm((f) => ({ ...f, jvzooMappings: f.jvzooMappings.filter((_, i) => i !== idx) }));
 
   async function saveAgents(next) {
     setAssigned(next);
@@ -281,15 +314,46 @@ export default function ProductDetails() {
               </FormSection>
 
               {can('integrations') && (
-                <FormSection title="JVZoo mapping" description="External offer IDs that grant this product. Comma-separated; include FE, OTOs and bundle IDs.">
-                  <Input
-                    label="JVZoo product IDs"
-                    name="jvzooProductIds"
-                    value={form.jvzooProductIds}
-                    onChange={change}
-                    placeholder="1001, 1002, 2050"
-                    hint="A verified purchase of any of these grants access to this product."
-                  />
+                <FormSection title="JVZoo Mapping" description="Map JVZoo offers (FE, OTO, bundle, add-on) to this product. A verified purchase of any active mapping grants access with its plan.">
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-ink-200 bg-ink-50 p-3">
+                      <p className="mb-1 text-xs font-medium text-ink-600">Central IPN URL (paste into every JVZoo product’s IPN settings)</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 truncate rounded bg-white px-2 py-1 text-xs text-ink-800">{ipnUrl || '—'}</code>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => { navigator.clipboard?.writeText(ipnUrl); toast.success('Copied'); }}>Copy</Button>
+                      </div>
+                    </div>
+
+                    {(form.jvzooMappings || []).length === 0 && (
+                      <p className="text-sm text-ink-500">No mappings yet. Add the JVZoo product ID for each offer.</p>
+                    )}
+
+                    {(form.jvzooMappings || []).map((m, idx) => (
+                      <div key={idx} className="grid grid-cols-1 gap-2 rounded-lg border border-ink-200 p-3 sm:grid-cols-[1fr_auto_1fr_auto_auto] sm:items-end">
+                        <Input label={idx === 0 ? 'JVZoo product ID' : ''} value={m.externalProductId} onChange={(e) => changeMapping(idx, 'externalProductId', e.target.value)} placeholder="e.g. 385761" />
+                        <div>
+                          {idx === 0 && <span className="label">Offer</span>}
+                          <select className="input" value={m.offerType} onChange={(e) => changeMapping(idx, 'offerType', e.target.value)}>
+                            <option value="fe">FE</option>
+                            <option value="oto">OTO</option>
+                            <option value="bundle">Bundle</option>
+                            <option value="addon">Add-on</option>
+                          </select>
+                        </div>
+                        <Input label={idx === 0 ? 'Access plan' : ''} value={m.accessPlan} onChange={(e) => changeMapping(idx, 'accessPlan', e.target.value)} placeholder="e.g. pro" />
+                        <label className="inline-flex items-center gap-1.5 pb-2 text-sm text-ink-600">
+                          <input type="checkbox" checked={m.active} onChange={(e) => changeMapping(idx, 'active', e.target.checked)} /> Active
+                        </label>
+                        <button type="button" onClick={() => removeMapping(idx)} className="pb-2 text-ink-400 hover:text-red-600" title="Remove">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+
+                    <Button type="button" variant="secondary" size="sm" onClick={addMapping}>
+                      <Plus className="h-4 w-4" /> Add JVZoo mapping
+                    </Button>
+                  </div>
                 </FormSection>
               )}
 

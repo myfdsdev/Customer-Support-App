@@ -50,6 +50,8 @@ const customerProductSchema = new mongoose.Schema(
     parentTransactionId: { type: String, default: '', index: true },
     /** The provider's own product identifier that granted this entitlement. */
     externalProductId: { type: String, default: '', index: true },
+    /** Which JVZoo offer type granted it: fe | oto | bundle | addon. */
+    offerType: { type: String, default: '' },
 
     /**
      * Access state. Separate from `subscriptionStatus` because that field is
@@ -64,9 +66,15 @@ const customerProductSchema = new mongoose.Schema(
     },
     accessGrantedAt: { type: Date, default: null },
     accessRevokedAt: { type: Date, default: null },
+
+    /** The provider event type that last changed this row (e.g. 'sale','refund'). */
+    lastPaymentEvent: { type: String, default: '' },
+    /** Kept for backward compatibility with earlier writes. Prefer lastPaymentEvent. */
     lastEventType: { type: String, default: '' },
 
-    /** Provider extras worth keeping (affiliate, currency, amount). Never PII-heavy. */
+    /** Provider extras worth keeping (offer type, currency, amount). Never PII-heavy, no secrets. */
+    providerMetadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+    /** Legacy alias of providerMetadata; retained so older rows stay readable. */
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }

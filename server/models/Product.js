@@ -10,7 +10,26 @@ const {
   PRODUCT_PAGE_SECTIONS,
   PAGE_STATUS,
   PAGE_STATUS_LIST,
+  OFFER_TYPES,
+  OFFER_TYPE_LIST,
 } = require('../utils/constants');
+
+/**
+ * One JVZoo offer that grants this internal product.
+ *   externalProductId  the JVZoo product id (from `cproditem`)
+ *   offerType          fe | oto | bundle | addon
+ *   accessPlan         the plan this offer unlocks (written to CustomerProduct.plan)
+ *   active             disabled mappings are ignored by the resolver
+ */
+const jvzooMappingSchema = new mongoose.Schema(
+  {
+    externalProductId: { type: String, required: true, trim: true },
+    offerType: { type: String, enum: OFFER_TYPE_LIST, default: OFFER_TYPES.FE },
+    accessPlan: { type: String, default: '', trim: true, maxlength: 80 },
+    active: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
 
 /** A CSS hex colour, or empty to fall back to the built-in default. */
 const HEX = {
@@ -165,9 +184,22 @@ const productSchema = new mongoose.Schema(
      * ---------------------------------------------------------------- */
 
     /**
-     * Every external id that grants this product: front-end offer, OTOs,
-     * downsells, bundles. An array because one internal product routinely has
-     * several JVZoo ids, and a bundle grants more than one product.
+     * Structured JVZoo mapping. One internal product can be granted by several
+     * JVZoo offers (front-end plus its OTOs/bundles/add-ons); each mapping
+     * carries its own offer type and access plan, so an OTO is never blindly
+     * treated as the front-end. A JVZoo id must not be `active` on two internal
+     * products at once — enforced by an application-level check in the product
+     * controller (cross-document uniqueness can't be a Mongo index).
+     */
+    jvzooMappings: {
+      type: [jvzooMappingSchema],
+      default: [],
+    },
+
+    /**
+     * DEPRECATED legacy flat list. Superseded by `jvzooMappings`. Kept in the
+     * schema so pre-existing documents remain valid and the resolver can still
+     * fall back to it; new writes go to `jvzooMappings`.
      */
     jvzooProductIds: { type: [String], default: [], index: true },
 
@@ -205,9 +237,9 @@ productSchema.pre('validate', function ensureSlug(next) {
 });
 
 /**
- * External ids are matched case-insensitively and without surrounding space —
- * JVZoo ids arrive as strings and a stray space in the admin form would
- * otherwise silently break every future purchase of that offer.
+ * External ids are trimmed and de-duplicated on write — JVZoo ids arrive as
+ * strings and a stray space in the admin form would otherwise silently break
+ * every future purchase of that offer.
  */
 productSchema.pre('validate', function normaliseExternalIds(next) {
   if (Array.isArray(this.jvzooProductIds)) {
@@ -215,8 +247,35 @@ productSchema.pre('validate', function normaliseExternalIds(next) {
       ...new Set(this.jvzooProductIds.map((id) => String(id || '').trim()).filter(Boolean)),
     ];
   }
+  if (Array.isArray(this.jvzooMappings)) {
+    const seen = new Set();
+    this.jvzooMappings = this.jvzooMappings
+      .map((m) => ({
+        externalProductId: String(m.externalProductId || '').trim(),
+        offerType: m.offerType || OFFER_TYPES.FE,
+        accessPlan: String(m.accessPlan || '').trim(),
+        active: m.active !== false,
+      }))
+      .filter((m) => {
+        if (!m.externalProductId) return false;
+        // Collapse duplicate ids within this one product.
+        if (seen.has(m.externalProductId)) return false;
+        seen.add(m.externalProductId);
+        return true;
+      });
+  }
   next();
 });
+
+/**
+ * Every external id this product actively grants, from the structured mappings
+ * plus the deprecated flat list. Used by the cross-product uniqueness check.
+ */
+productSchema.methods.activeExternalIds = function activeExternalIds() {
+  const fromMappings = (this.jvzooMappings || []).filter((m) => m.active).map((m) => m.externalProductId);
+  const fromLegacy = this.jvzooProductIds || [];
+  return [...new Set([...fromMappings, ...fromLegacy].map((id) => String(id).trim()).filter(Boolean))];
+};
 
 productSchema.virtual('supportUrl').get(function supportUrl() {
   return `/support/${this.slug}`;

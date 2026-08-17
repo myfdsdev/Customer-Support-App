@@ -13,7 +13,7 @@ const {
   CustomerSession,
 } = require('../models');
 const { accessibleProductIds } = require('../middleware/auth');
-const { OPEN_STATUSES, PRODUCT_PAGE_SECTIONS, CAPABILITIES, roleHasCapability } = require('../utils/constants');
+const { OPEN_STATUSES, PRODUCT_PAGE_SECTIONS, CAPABILITIES, roleHasCapability, OFFER_TYPE_LIST } = require('../utils/constants');
 const { sanitizeText, sanitizeUrl, sanitizeItems } = require('../utils/sanitize');
 const { AuditLog } = require('../models');
 const { hashIp } = require('../utils/tokens');
@@ -126,35 +126,47 @@ const updateProduct = asyncHandler(async (req, res) => {
     product.supportPage = { ...current, ...req.body.supportPage };
   }
 
-  // JVZoo id mapping. Rejects an external id already claimed by another active
+  // Structured JVZoo mapping. Rejects an external id already ACTIVE on another
   // product, so a single JVZoo purchase can never grant two internal products
-  // by accident. The admin resolves the conflict by removing it from the other
-  // product first.
-  if (req.body.jvzooProductIds !== undefined) {
-    // Mapping external payment ids is an integrations action, not a general
-    // product edit — gate it on the capability even within this shared route.
+  // by accident. Cross-document uniqueness can't be a Mongo index, so it is an
+  // application-level check here. Mapping is an integrations action, gated on
+  // the capability even within this shared product route.
+  if (req.body.jvzooMappings !== undefined) {
     if (!roleHasCapability(req.user.role, CAPABILITIES.MANAGE_INTEGRATIONS)) {
-      throw ApiError.forbidden('Mapping JVZoo product ids requires the manage_integrations capability');
+      throw ApiError.forbidden('Editing JVZoo mappings requires the manage_integrations capability');
     }
-    const ids = (Array.isArray(req.body.jvzooProductIds) ? req.body.jvzooProductIds : [])
-      .map((id) => String(id || '').trim())
-      .filter(Boolean);
-    const unique = [...new Set(ids)];
+    const incoming = Array.isArray(req.body.jvzooMappings) ? req.body.jvzooMappings : [];
+    const cleaned = [];
+    const seen = new Set();
+    for (const m of incoming) {
+      const externalProductId = String(m.externalProductId || '').trim();
+      if (!externalProductId || seen.has(externalProductId)) continue;
+      seen.add(externalProductId);
+      cleaned.push({
+        externalProductId,
+        offerType: OFFER_TYPE_LIST.includes(m.offerType) ? m.offerType : 'fe',
+        accessPlan: String(m.accessPlan || '').trim(),
+        active: m.active !== false,
+      });
+    }
 
-    if (unique.length) {
+    const activeIds = cleaned.filter((m) => m.active).map((m) => m.externalProductId);
+    if (activeIds.length) {
       const clash = await Product.findOne({
         _id: { $ne: product._id },
-        active: true,
-        jvzooProductIds: { $in: unique },
-      }).select('name jvzooProductIds');
+        jvzooMappings: { $elemMatch: { externalProductId: { $in: activeIds }, active: true } },
+      }).select('name jvzooMappings');
       if (clash) {
-        const overlapping = unique.filter((id) => clash.jvzooProductIds.includes(id));
+        const clashIds = new Set(
+          (clash.jvzooMappings || []).filter((x) => x.active).map((x) => x.externalProductId)
+        );
+        const overlapping = activeIds.filter((id) => clashIds.has(id));
         throw ApiError.conflict(
           `JVZoo id(s) ${overlapping.join(', ')} are already mapped to "${clash.name}". Remove them there first.`
         );
       }
     }
-    product.jvzooProductIds = unique;
+    product.jvzooMappings = cleaned;
   }
 
   // Structured, sanitised product-page content. Every string is stripped of
@@ -174,7 +186,7 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   await product.save();
 
-  if (req.body.jvzooProductIds !== undefined) {
+  if (req.body.jvzooMappings !== undefined) {
     AuditLog.record({
       actorId: req.user._id,
       actorName: req.user.name,
@@ -182,8 +194,8 @@ const updateProduct = asyncHandler(async (req, res) => {
       action: 'product.mapping.update',
       targetType: 'product',
       targetId: product._id,
-      summary: `Updated JVZoo mapping for ${product.name}`,
-      meta: { jvzooProductIds: product.jvzooProductIds },
+      summary: `Updated JVZoo mappings for ${product.name}`,
+      meta: { jvzooMappings: product.jvzooMappings },
       ipHash: hashIp(req.ip),
     });
   }

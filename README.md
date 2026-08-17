@@ -452,26 +452,93 @@ Ownership is re-verified from `CustomerProduct` on **every** product-scoped call
 (`requireCustomerProductAccess`) — URL tampering cannot open an unpurchased
 product, and a refunded entitlement returns 403.
 
-### JVZoo integration
+### JVZoo integration (central IPN)
 
-- **Webhook**: `POST /api/integrations/jvzoo/ipn` (public, verified by the
-  `cverify` signature — see `services/integrations/jvzooService.js`). Processing
-  is idempotent (unique `PaymentEvent` index); refunds/chargebacks revoke access
-  without deleting history; unmapped product ids are stored as *pending* for an
-  admin to map and reprocess. Always acknowledges with `1`.
-- **Product mapping**: map one or many JVZoo ids (FE/OTO/bundle) to an internal
-  product under **Admin → Products → (product) → JVZoo mapping**
-  (`manage_integrations` only). Duplicate ids across active products are rejected.
-- **CSV import**: **Admin → JVZoo & Imports → CSV import** — pick a product,
-  upload the export, map columns, preview, confirm. Upserts into the central
-  `CustomerProduct` table (never a per-file collection).
+One endpoint serves **all** JVZoo products:
 
-**Verification note:** the `cverify` algorithm implemented is JVZoo's published
-IPN scheme. Validate it against a real JVZoo test IPN before relying on it in
-production; if your account documents a different current scheme, replace
-`computeSignatures` in `jvzooService.js` — nothing downstream changes. With
-`JVZOO_WEBHOOK_ENABLED=true` and no `JVZOO_IPN_SECRET`, events are stored for
-audit and **rejected as unverified** (no access granted).
+```
+POST /api/integrations/jvzoo/ipn
+```
+
+Flow: `JVZoo purchase/refund/chargeback → verify → identify JVZoo product →
+map to internal Product → find/create customer by normalized email → upsert
+CustomerProduct → entitlement visible on the customer dashboard`.
+
+- **Verifier is isolated** in `services/integrations/jvzooVerifier.js`. The
+  protocol adapter (`jvzooService.js`) never checks signatures; it only
+  normalizes and redacts. Everything downstream reads the **normalized event
+  shape**, never raw request fields.
+- **Idempotent**: unique `PaymentEvent (provider, externalEventId)` index — a
+  JVZoo retry is acknowledged with `1` and applied at most once.
+- **Refund/chargeback/cancel** flip `purchaseStatus` and stamp
+  `accessRevokedAt` on the **correct** entitlement (resolved by transaction id,
+  never by email alone); the row and its verified history are **kept**.
+- **Unmapped id** → event stored as `pending_mapping`, no access; an admin maps
+  it and reprocesses.
+- **Fast ack**: the event is persisted before entitlement work, then processed
+  synchronously (bounded), so JVZoo always gets its `1` quickly.
+
+**Product mapping (structured).** Under **Admin → Products → (product) → JVZoo
+Mapping** (`manage_integrations` only) add one row per JVZoo offer:
+
+| JVZoo Product ID | Offer Type | Access Plan | Active |
+|---|---|---|---|
+| `FE-100` | fe | starter | ✓ |
+| `OTO-101` | oto | pro | ✓ |
+
+One internal product can have many JVZoo ids; each carries its own plan, so an
+OTO is never blindly treated as the FE. A JVZoo id **active on two products at
+once is rejected**. The same tab shows the **central IPN URL** with a Copy
+button.
+
+**Diagnosing pending mapping.** **Admin → JVZoo Integration** lists every event
+with verification + processing status, masked email, transaction, external id
+and mapped product. Filter to *Pending mapping*, click the link icon to assign
+the id to an internal product (with offer type + plan) — it maps and reprocesses
+in one step. *Reprocess pending* handles them in a bounded batch. A sanitized
+payload viewer and payload hash are available per event; the IPN secret is never
+returned.
+
+**CSV import.** **Admin → JVZoo Integration → CSV import** — pick a product,
+upload the export, map columns, preview, confirm. Upserts into the central
+`CustomerProduct` table (never a per-file collection).
+
+**Where to put the IPN URL in JVZoo.** For each of your JVZoo products, open the
+product's IPN settings in the JVZoo dashboard and paste the central IPN URL
+shown in Admin → JVZoo Integration (it points at your **backend API** domain,
+derived from the request host / `APP_BASE_URL` — not the frontend).
+
+> **⚠ Verification is production-BLOCKED until you confirm it.** No official
+> current JVZoo IPN documentation or a real sanitized test notification was
+> supplied with this project. `jvzooVerifier.js` implements JVZoo's
+> long-published `cverify` scheme (SHA-1 of sorted values + secret, first 8
+> chars, uppercased, timing-safe compare) but treats it as **unconfirmed**:
+> while `JVZOO_VERIFICATION_CONFIRMED=false` the verifier returns `blocked` and
+> **no event grants access** (events are still stored for audit). To go live:
+> 1. Set `JVZOO_IPN_SECRET` (from your JVZoo seller dashboard) and
+>    `JVZOO_WEBHOOK_ENABLED=true`.
+> 2. Send a **real JVZoo test IPN** and confirm it verifies and creates the
+>    expected entitlement.
+> 3. Only then set `JVZOO_VERIFICATION_CONFIRMED=true`.
+>
+> If your account documents a different current scheme, or a real test IPN
+> reveals a different convention, edit **only** `computeSignatures`/`verify` in
+> `jvzooVerifier.js` — nothing else changes. The automated tests use a
+> **mocked** payload (`scripts/fixtures/jvzoo-sample-ipn.json`) and therefore
+> prove the mapping/entitlement logic, **not** live JVZoo connectivity.
+
+**Missing verification detail needed from you (to unblock production):** the
+current official JVZoo IPN spec or a real sanitized test notification —
+specifically the exact `cverify` field name, the value-ordering/concatenation
+convention, the hash algorithm, and the acknowledgement string JVZoo expects.
+
+**Deployment checklist (JVZoo):** set the three env vars → confirm the IPN URL
+points at the backend domain → add mappings for every product → send a test IPN
+→ verify it in Admin → set `JVZOO_VERIFICATION_CONFIRMED=true`.
+
+**Rollback:** set `JVZOO_WEBHOOK_ENABLED=false` (endpoint acknowledges and does
+nothing) or `JVZOO_VERIFICATION_CONFIRMED=false` (events stored, none granted).
+Model changes are additive; the previous build ignores the new fields.
 
 ### Entitlement lifecycle
 

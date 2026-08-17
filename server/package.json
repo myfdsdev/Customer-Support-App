@@ -13,6 +13,7 @@
     "seed:fresh": "node seed/seed.js --fresh",
     "reindex": "node seed/reindex.js",
     "verify:portal": "node scripts/verifyPortal.js",
+    "verify:jvzoo": "node scripts/verifyJvzoo.js",
     "smoke:portal": "node scripts/smokePortal.js",
     "dev:portal-demo": "node scripts/devPortalDemo.js"
   },

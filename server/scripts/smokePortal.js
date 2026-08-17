@@ -14,6 +14,7 @@ process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'smoke_portal_secret_key_0123456789_abcdefgh';
 process.env.JVZOO_IPN_SECRET = 'SMOKE_SECRET';
 process.env.JVZOO_WEBHOOK_ENABLED = 'true';
+process.env.JVZOO_VERIFICATION_CONFIRMED = 'true';
 
 let passed = 0;
 let failed = 0;
@@ -67,7 +68,7 @@ async function main() {
   };
 
   // Fixture product with a JVZoo mapping.
-  await models.Product.create({ name: 'SmokeApp', slug: 'smokeapp', jvzooProductIds: ['5001'], launchUrl: 'https://app.example.com', accessMode: 'external_url' });
+  await models.Product.create({ name: 'SmokeApp', slug: 'smokeapp', jvzooMappings: [{ externalProductId: '5001', offerType: 'fe', accessPlan: 'pro', active: true }], launchUrl: 'https://app.example.com', accessMode: 'external_url' });
 
   console.log('\nWebhook');
   const ipn = await request(server, {

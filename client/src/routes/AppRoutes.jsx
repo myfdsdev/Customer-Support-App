@@ -199,7 +199,8 @@ export default function AppRoutes() {
         <Route path="marketing" element={<RequirePermission section="marketing"><Marketing /></RequirePermission>} />
         <Route path="announcements" element={<RequirePermission section="announcements"><Announcements /></RequirePermission>} />
         <Route path="portal-content" element={<RequirePermission section="portal-content"><PortalContent /></RequirePermission>} />
-        <Route path="integrations" element={<RequirePermission section="integrations"><Integrations /></RequirePermission>} />
+        <Route path="integrations" element={<Navigate to="/admin/integrations/jvzoo" replace />} />
+        <Route path="integrations/jvzoo" element={<RequirePermission section="integrations"><Integrations /></RequirePermission>} />
         <Route path="team" element={<RequirePermission section="team"><Team /></RequirePermission>} />
         <Route path="analytics" element={<RequirePermission section="analytics"><Analytics /></RequirePermission>} />
         <Route path="settings" element={<Settings />} />

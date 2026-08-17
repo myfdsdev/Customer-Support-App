@@ -117,8 +117,10 @@ export const recommendationService = {
 export const integrationService = {
   status: () => api.get('/integrations/status').then(unwrap),
   listEvents: (params) => api.get('/integrations/jvzoo/events', { params }).then(unwrap),
+  getEvent: (id) => api.get(`/integrations/jvzoo/events/${id}`).then(unwrap),
   reprocessEvent: (id) => api.post(`/integrations/jvzoo/events/${id}/reprocess`).then(unwrap),
   reprocessPending: () => api.post('/integrations/jvzoo/events/reprocess-pending').then(unwrap),
+  assignMapping: (id, payload) => api.post(`/integrations/jvzoo/events/${id}/assign-mapping`, payload).then(unwrap),
   importCsv: (formData) =>
     api
       .post('/integrations/jvzoo/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } })

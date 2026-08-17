@@ -269,6 +269,7 @@ const PURCHASE_STATUS = {
   CANCELLED: 'cancelled',
   EXPIRED: 'expired',
   PENDING: 'pending',
+  FAILED: 'failed',
 };
 const PURCHASE_STATUS_LIST = Object.values(PURCHASE_STATUS);
 
@@ -277,8 +278,38 @@ const VERIFICATION_STATUS = {
   FAILED: 'failed',
   SKIPPED: 'skipped',
   UNCONFIGURED: 'unconfigured',
+  /** Verifier is present but the scheme has not been confirmed against a real
+   *  JVZoo test IPN yet — treated as NOT verified (grants nothing). */
+  BLOCKED: 'blocked',
 };
 const VERIFICATION_STATUS_LIST = Object.values(VERIFICATION_STATUS);
+
+/**
+ * JVZoo offer types. A single internal product can be granted by several of
+ * these (front-end plus its upsells); each mapping carries its own access plan
+ * so an OTO is never blindly treated as the front-end.
+ */
+const OFFER_TYPES = { FE: 'fe', OTO: 'oto', BUNDLE: 'bundle', ADDON: 'addon' };
+const OFFER_TYPE_LIST = Object.values(OFFER_TYPES);
+
+/**
+ * Lifecycle of a stored PaymentEvent, independent of whether it verified.
+ *   received        stored, not yet applied
+ *   processed       entitlement written
+ *   pending_mapping verified but no internal product mapped — awaits admin
+ *   duplicate       a retry of an event already applied
+ *   failed          processing threw / event unverified / missing data
+ *   ignored         valid but not access-changing (e.g. an unknown verb)
+ */
+const PROCESSING_STATUS = {
+  RECEIVED: 'received',
+  PROCESSED: 'processed',
+  PENDING_MAPPING: 'pending_mapping',
+  DUPLICATE: 'duplicate',
+  FAILED: 'failed',
+  IGNORED: 'ignored',
+};
+const PROCESSING_STATUS_LIST = Object.values(PROCESSING_STATUS);
 
 /* -------------------------------------------------------------------------
  * Customer portal
@@ -389,6 +420,10 @@ module.exports = {
   PURCHASE_STATUS_LIST,
   VERIFICATION_STATUS,
   VERIFICATION_STATUS_LIST,
+  OFFER_TYPES,
+  OFFER_TYPE_LIST,
+  PROCESSING_STATUS,
+  PROCESSING_STATUS_LIST,
   ACCESS_MODES,
   ACCESS_MODE_LIST,
   DASHBOARD_VISIBILITY,

@@ -20,6 +20,8 @@ process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'verify_portal_secret_key_0123456789_long_enough';
 process.env.JVZOO_IPN_SECRET = 'VERIFY_SECRET';
 process.env.JVZOO_WEBHOOK_ENABLED = 'true';
+// This test validates entitlement behaviour with verification switched on.
+process.env.JVZOO_VERIFICATION_CONFIRMED = 'true';
 
 let passed = 0;
 let failed = 0;
@@ -66,18 +68,25 @@ async function main() {
   };
   const ingest = async (body) => {
     const verification = jvzoo.verify(body);
-    const normalized = jvzoo.normalize(body);
+    const normalized = jvzoo.normalize(body, { verified: verification.ok });
     return entitlements.ingestEvent({
       normalized,
       verification,
       redactedPayload: jvzoo.redactPayload(body),
+      payloadHash: jvzoo.payloadHash(body),
       requestMeta: { ipHash: 'x', userAgent: 'test' },
     });
   };
 
   // --- Fixtures -------------------------------------------------------------
-  const product = await Product.create({ name: 'VideoClawBot', slug: 'videoclawbot', jvzooProductIds: ['1001'] });
-  const bundleProduct = await Product.create({ name: 'ThumbForge', slug: 'thumbforge', jvzooProductIds: ['2001'] });
+  const product = await Product.create({
+    name: 'VideoClawBot', slug: 'videoclawbot',
+    jvzooMappings: [{ externalProductId: '1001', offerType: 'fe', accessPlan: 'pro', active: true }],
+  });
+  const bundleProduct = await Product.create({
+    name: 'ThumbForge', slug: 'thumbforge',
+    jvzooMappings: [{ externalProductId: '2001', offerType: 'fe', accessPlan: '', active: true }],
+  });
 
   console.log('\nPurchase integration');
 
@@ -122,11 +131,11 @@ async function main() {
     const cust = await Customer.findOne({ email: 'nomap@example.com' });
     assert(!cust || (await CustomerProduct.countDocuments({ customerId: cust._id })) === 0, 'no entitlement granted');
     const evt = await PaymentEvent.findOne({ transactionId: 'T-200' });
-    assert(evt.pendingMapping === true && evt.processed === false, 'event marked pending');
+    assert(evt.processingStatus === 'pending_mapping' && evt.processed === false, 'event marked pending');
   });
 
   await test('mapping the product then reprocessing grants access', async () => {
-    product.jvzooProductIds.push('9999');
+    product.jvzooMappings.push({ externalProductId: '9999', offerType: 'oto', accessPlan: 'upgrade', active: true });
     await product.save();
     const evt = await PaymentEvent.findOne({ transactionId: 'T-200' });
     const result = await entitlements.processPaymentEvent(evt);

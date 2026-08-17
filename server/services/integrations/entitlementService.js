@@ -13,6 +13,7 @@ const {
   GRANTING_EVENT_TYPES,
   REVOKING_EVENT_TYPES,
   PURCHASE_STATUS,
+  PROCESSING_STATUS,
   VERIFICATION_STATUS,
   NOTIFICATION_TYPES,
 } = require('../../utils/constants');
@@ -22,43 +23,61 @@ const emitter = require('../socket/emitter');
 /**
  * Provider-agnostic entitlement lifecycle.
  *
- * A verified purchase grants access; a refund/chargeback/cancel revokes it
- * without deleting history. Everything here is idempotent at the data layer:
- * the PaymentEvent unique index means the same provider event can be delivered
- * any number of times and access is only ever applied once.
+ * Everything downstream of the webhook operates on the NORMALIZED event shape
+ * (see jvzooService.normalize), never raw request fields. A verified
+ * grant creates/updates a CustomerProduct; a verified refund/chargeback/cancel
+ * flips its status without deleting history. Idempotency is enforced at the
+ * data layer by the PaymentEvent unique index — the same event delivered any
+ * number of times applies access at most once.
  *
- * The AI is never a writer here — only verified provider events, admin CSV
- * imports and admin manual actions reach this code.
+ * The AI and the browser are never writers here.
  */
 
-/** Maps a purchase status onto the legacy `subscriptionStatus` enum. */
+/** Maps an access state onto the legacy `subscriptionStatus` enum. */
 const SUBSCRIPTION_FOR_STATUS = {
   [PURCHASE_STATUS.ACTIVE]: 'active',
   [PURCHASE_STATUS.REFUNDED]: 'refunded',
-  [PURCHASE_STATUS.CHARGEBACK]: 'refunded',
+  [PURCHASE_STATUS.CHARGEBACK]: 'cancelled',
   [PURCHASE_STATUS.CANCELLED]: 'cancelled',
   [PURCHASE_STATUS.EXPIRED]: 'expired',
   [PURCHASE_STATUS.PENDING]: 'none',
+  [PURCHASE_STATUS.FAILED]: 'none',
 };
 
 /**
- * Finds the internal product a provider product id maps to.
- * Case-insensitive, and only active products are eligible.
+ * Resolves the internal product an external JVZoo id maps to.
+ *
+ * Prefers the structured `jvzooMappings` (active only), returning the offer
+ * type and access plan; falls back to the deprecated flat `jvzooProductIds`
+ * for any product not yet migrated. Product name is NEVER used for matching.
+ *
+ * @returns {null | { product, offerType, accessPlan }}
  */
-async function findProductForExternalId(externalProductId) {
+async function resolveMapping(externalProductId) {
   const id = String(externalProductId || '').trim();
   if (!id) return null;
-  return Product.findOne({ jvzooProductIds: id });
+
+  // Structured mapping first.
+  const mapped = await Product.findOne({
+    jvzooMappings: { $elemMatch: { externalProductId: id, active: true } },
+  });
+  if (mapped) {
+    const m = (mapped.jvzooMappings || []).find((x) => x.active && x.externalProductId === id);
+    return { product: mapped, offerType: m?.offerType || '', accessPlan: m?.accessPlan || '' };
+  }
+
+  // Legacy flat list fallback.
+  const legacy = await Product.findOne({ jvzooProductIds: id });
+  if (legacy) return { product: legacy, offerType: '', accessPlan: '' };
+
+  return null;
 }
 
 /**
- * Finds or creates the Customer for a purchase email, without ever creating a
- * duplicate for an email that already exists (case-insensitively).
- *
- * Does NOT give the customer a portal password — that only happens when the
- * person registers. An imported purchase attaches to whatever record already
- * holds that email, so when they later register on it they "claim" their
- * history automatically.
+ * Finds or creates the Customer for a purchase email, never duplicating an
+ * email that already exists (case-insensitively). Does NOT set a password —
+ * the webhook only creates verified customer + entitlement data; login/claiming
+ * is a separate flow.
  */
 async function findOrCreateCustomerByEmail({ email, name }) {
   const normalized = Customer.normalizeEmail(email);
@@ -78,119 +97,113 @@ async function findOrCreateCustomerByEmail({ email, name }) {
       email: normalized,
       name: name || '',
       status: 'active',
-      verifiedSource: 'purchase',
+      verifiedSource: 'jvzoo',
     });
   } catch (err) {
-    // Lost a race with a concurrent create on the same email — re-read.
-    if (err.code === 11000) return Customer.findOne({ email: normalized });
+    if (err.code === 11000) return Customer.findOne({ email: normalized }); // lost a create race
     throw err;
   }
   return customer;
 }
 
 /**
- * Applies one already-VERIFIED, normalised event to the entitlement table.
+ * Applies one already-VERIFIED normalized event to the entitlement table.
  *
- * @param {object} args
- * @param {object} args.event      normalized event (see jvzooService.normalize)
- * @param {string} args.provider   PAYMENT_PROVIDERS.*
- * @param {ObjectId} [args.paymentEventId]  the stored PaymentEvent, for backlinks
  * @returns {{ outcome, entitlement?, customer?, product?, reason? }}
  *   outcome ∈ 'granted' | 'revoked' | 'pending_mapping' | 'ignored'
  */
-async function applyEvent({ event, provider = PAYMENT_PROVIDERS.JVZOO, paymentEventId = null }) {
+async function applyEvent({ event }) {
   const isGrant = GRANTING_EVENT_TYPES.includes(event.eventType);
   const isRevoke = REVOKING_EVENT_TYPES.includes(event.eventType);
 
   if (!isGrant && !isRevoke) {
-    return { outcome: 'ignored', reason: `event type ${event.eventType} does not change access` };
+    return { outcome: 'ignored', reason: `event type "${event.eventType}" does not change access` };
   }
 
-  const product = await findProductForExternalId(event.productExternalId);
+  const mapping = await resolveMapping(event.externalProductId);
 
-  // Revocations can find their target by transaction id even when the product
-  // mapping was removed after the sale, so try that before giving up.
-  if (!product && isRevoke) {
-    const existing = await CustomerProduct.findOne({ provider, transactionId: event.transactionId });
+  // A revocation can still find its target by transaction id even if the
+  // mapping was removed after the sale — resolve entitlement by the verified
+  // transaction reference, never by email alone.
+  if (!mapping && isRevoke) {
+    const existing = await CustomerProduct.findOne({
+      provider: PAYMENT_PROVIDERS.JVZOO,
+      transactionId: event.transactionId,
+    });
     if (existing) {
       await revokeEntitlement(existing, event);
       const customer = await Customer.findById(existing.customerId);
+      await notifyAccessChange(customer, existing.productId, NOTIFICATION_TYPES.ACCESS_REVOKED);
+      emitAccessUpdated(existing.customerId, existing.productId, existing.purchaseStatus);
       return { outcome: 'revoked', entitlement: existing, customer, product: null };
     }
   }
 
-  if (!product) {
-    return { outcome: 'pending_mapping', reason: `no product mapped to external id "${event.productExternalId}"` };
+  if (!mapping) {
+    return { outcome: 'pending_mapping', reason: `no active mapping for JVZoo id "${event.externalProductId}"` };
   }
 
   const customer = await findOrCreateCustomerByEmail({ email: event.customerEmail, name: event.customerName });
-  if (!customer) {
-    return { outcome: 'ignored', reason: 'event carried no usable customer email' };
-  }
+  if (!customer) return { outcome: 'ignored', reason: 'event carried no usable customer email' };
 
   if (isRevoke) {
-    const entitlement = await CustomerProduct.findOne({ customerId: customer._id, productId: product._id });
-    if (!entitlement) {
-      return { outcome: 'ignored', reason: 'nothing to revoke for this customer/product' };
-    }
+    const entitlement = await CustomerProduct.findOne({ customerId: customer._id, productId: mapping.product._id });
+    if (!entitlement) return { outcome: 'ignored', reason: 'nothing to revoke for this customer/product' };
     await revokeEntitlement(entitlement, event);
-    await notifyAccessChange(customer, product, NOTIFICATION_TYPES.ACCESS_REVOKED);
-    emitter.toAgents('entitlement:updated', {
-      customerId: String(customer._id),
-      productId: String(product._id),
-      purchaseStatus: entitlement.purchaseStatus,
-    });
-    return { outcome: 'revoked', entitlement, customer, product };
+    await notifyAccessChange(customer, mapping.product, NOTIFICATION_TYPES.ACCESS_REVOKED);
+    emitAccessUpdated(customer._id, mapping.product._id, entitlement.purchaseStatus);
+    return { outcome: 'revoked', entitlement, customer, product: mapping.product };
   }
 
-  const entitlement = await grantEntitlement({ customer, product, event, provider });
-  await notifyAccessChange(customer, product, NOTIFICATION_TYPES.ACCESS_GRANTED);
-  emitter.toAgents('entitlement:updated', {
-    customerId: String(customer._id),
-    productId: String(product._id),
-    purchaseStatus: PURCHASE_STATUS.ACTIVE,
-  });
-  return { outcome: 'granted', entitlement, customer, product };
+  const entitlement = await grantEntitlement({ customer, mapping, event });
+  await notifyAccessChange(customer, mapping.product, NOTIFICATION_TYPES.ACCESS_GRANTED);
+  emitAccessUpdated(customer._id, mapping.product._id, PURCHASE_STATUS.ACTIVE);
+  return { outcome: 'granted', entitlement, customer, product: mapping.product };
 }
 
 /**
  * Upserts an ACTIVE, verified entitlement. Idempotent: replaying the same sale
  * re-stamps `lastVerifiedAt` but never creates a second row (unique index on
- * customerId+productId) and never double-grants.
+ * customerId+productId) and never double-grants. Existing `credits` are left
+ * untouched — this event does not control credits.
  */
-async function grantEntitlement({ customer, product, event, provider }) {
+async function grantEntitlement({ customer, mapping, event }) {
   const now = new Date();
   const set = {
-    provider,
+    provider: PAYMENT_PROVIDERS.JVZOO,
     verified: true,
-    verifiedSource: provider === PAYMENT_PROVIDERS.JVZOO ? 'jvzoo_ipn' : provider,
+    verifiedSource: 'jvzoo_ipn',
     lastVerifiedAt: now,
     purchaseStatus: PURCHASE_STATUS.ACTIVE,
     subscriptionStatus: 'active',
+    lastPaymentEvent: event.eventType,
     lastEventType: event.eventType,
     accessGrantedAt: now,
     accessRevokedAt: null,
-    externalProductId: event.productExternalId || '',
+    externalProductId: event.externalProductId || '',
+    offerType: mapping.offerType || '',
   };
-  if (event.transactionId) set.transactionId = event.transactionId;
-  if (event.parentTransactionId) set.parentTransactionId = event.parentTransactionId;
-  if (event.transactionId) set.orderId = event.transactionId;
-  if (event.amount || event.currency) {
-    set.metadata = { amount: event.amount, currency: event.currency };
+  if (event.transactionId) {
+    set.transactionId = event.transactionId;
+    set.orderId = event.transactionId;
   }
+  if (event.parentTransactionId) set.parentTransactionId = event.parentTransactionId;
+  // An OTO/upgrade carries its own access plan — apply it rather than the FE's.
+  if (mapping.accessPlan) set.plan = mapping.accessPlan;
+  const meta = { offerType: mapping.offerType, amount: event.amount, currency: event.currency };
+  set.providerMetadata = meta;
+  set.metadata = meta;
 
-  const entitlement = await CustomerProduct.findOneAndUpdate(
-    { customerId: customer._id, productId: product._id },
+  return CustomerProduct.findOneAndUpdate(
+    { customerId: customer._id, productId: mapping.product._id },
     {
       $set: set,
-      // Only stamp purchaseDate on first creation, so a rebill does not rewrite
-      // the original purchase date.
-      $setOnInsert: { purchaseDate: now },
+      // purchaseDate is only stamped on first creation, so a rebill does not
+      // rewrite the original purchase date.
+      $setOnInsert: { purchaseDate: event.occurredAt || now },
     },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
-
-  return entitlement;
 }
 
 /** Flips an entitlement to a revoked state, preserving the audit trail. */
@@ -204,6 +217,7 @@ async function revokeEntitlement(entitlement, event) {
 
   entitlement.purchaseStatus = statusForEvent;
   entitlement.subscriptionStatus = SUBSCRIPTION_FOR_STATUS[statusForEvent] || 'cancelled';
+  entitlement.lastPaymentEvent = event.eventType;
   entitlement.lastEventType = event.eventType;
   entitlement.accessRevokedAt = new Date();
   // `verified` stays true: the purchase really happened. Access is gated on
@@ -212,67 +226,81 @@ async function revokeEntitlement(entitlement, event) {
 }
 
 async function notifyAccessChange(customer, product, type) {
-  if (!customer.hasPortalAccount) return; // no portal account = no one to notify
+  if (!customer || !customer.hasPortalAccount) return; // no portal account = no one to notify
+  const productDoc = product && product.name ? product : await Product.findById(product).select('name slug');
+  if (!productDoc) return;
   const granted = type === NOTIFICATION_TYPES.ACCESS_GRANTED;
   await Notification.push({
     customerId: customer._id,
     type,
-    title: granted ? `Access granted: ${product.name}` : `Access changed: ${product.name}`,
+    title: granted ? `Access granted: ${productDoc.name}` : `Access changed: ${productDoc.name}`,
     body: granted
-      ? `${product.name} is now available in your account.`
-      : `Your access to ${product.name} has changed. Contact support if you believe this is a mistake.`,
-    link: granted ? `/portal/products/${product.slug}` : '/portal/support',
-    productId: product._id,
-    // refId keyed on the access change so grant/revoke each dedupe independently
-    refId: product._id,
+      ? `${productDoc.name} is now available in your account.`
+      : `Your access to ${productDoc.name} has changed. Contact support if you believe this is a mistake.`,
+    link: granted ? `/portal/products/${productDoc.slug}` : '/portal/support',
+    productId: productDoc._id,
+    refId: productDoc._id,
   }).catch(() => null);
 }
 
 /**
+ * Safe internal broadcast. Carries only ids and the access status — NEVER a
+ * payment payload, email or transaction reference.
+ */
+function emitAccessUpdated(customerId, productId, purchaseStatus) {
+  emitter.toAgents('customer:product-access-updated', {
+    customerId: String(customerId),
+    productId: String(productId),
+    purchaseStatus,
+  });
+}
+
+/**
  * Records an incoming provider event and applies it, all idempotently.
+ * Stores the event BEFORE touching entitlements, so even an event we then fail
+ * to process leaves an auditable trace.
  *
- * @param {object} args
- * @param {object} args.normalized      provider-agnostic normalized event
- * @param {object} args.verification    { status, ok } from the adapter
- * @param {object} args.redactedPayload safe-to-store request body
- * @param {object} args.requestMeta     { ipHash, userAgent }
- * @param {string} args.provider
  * @returns {{ duplicate, paymentEvent, result? }}
  */
-async function ingestEvent({ normalized, verification, redactedPayload, requestMeta, provider = PAYMENT_PROVIDERS.JVZOO }) {
-  // Store first, so even an event we then fail to process leaves a trace.
+async function ingestEvent({ normalized, verification, redactedPayload, payloadHash, requestMeta }) {
   let paymentEvent;
   try {
     paymentEvent = await PaymentEvent.create({
-      provider,
+      provider: PAYMENT_PROVIDERS.JVZOO,
       eventType: normalized.eventType,
       rawEventType: normalized.rawEventType,
-      externalEventId: normalized.externalEventId,
+      externalEventId: normalized.eventId,
       transactionId: normalized.transactionId,
       parentTransactionId: normalized.parentTransactionId,
-      productExternalId: normalized.productExternalId,
+      externalProductId: normalized.externalProductId,
       customerEmail: normalized.customerEmail,
       customerName: normalized.customerName,
       amount: normalized.amount,
       currency: normalized.currency,
-      status: normalized.status,
+      status: normalized.rawEventType,
       verificationStatus: verification.status,
+      processingStatus: PROCESSING_STATUS.RECEIVED,
+      payloadHash: payloadHash || '',
       redactedPayload,
       requestMeta,
-      attempts: 1,
+      retryCount: 0,
       receivedAt: new Date(),
     });
   } catch (err) {
     if (err.code === 11000) {
       // Idempotent replay: the provider re-sent an event we already have.
-      const existing = await PaymentEvent.findOne({ provider, externalEventId: normalized.externalEventId });
+      const existing = await PaymentEvent.findOne({
+        provider: PAYMENT_PROVIDERS.JVZOO,
+        externalEventId: normalized.eventId,
+      });
       return { duplicate: true, paymentEvent: existing };
     }
     throw err;
   }
 
-  // Never entitle on an unverified event. It is stored (above) for audit.
+  // Never entitle on anything that did not verify. It is stored (above) for audit.
   if (!verification.ok) {
+    paymentEvent.processingStatus = PROCESSING_STATUS.FAILED;
     paymentEvent.processed = false;
     paymentEvent.failureReason = verification.reason || 'verification failed';
     await paymentEvent.save();
@@ -285,42 +313,58 @@ async function ingestEvent({ normalized, verification, redactedPayload, requestM
 
 /**
  * Applies a stored, verified PaymentEvent to the entitlement table and records
- * the outcome on the event. Shared by the webhook path and the admin
- * "reprocess" action, so both behave identically.
+ * the outcome. Shared by the webhook path and the admin "reprocess" action, so
+ * both behave identically. Only VERIFIED events are ever processed.
  */
 async function processPaymentEvent(paymentEvent) {
+  if (paymentEvent.verificationStatus !== VERIFICATION_STATUS.VERIFIED) {
+    paymentEvent.processingStatus = PROCESSING_STATUS.FAILED;
+    paymentEvent.processed = false;
+    paymentEvent.failureReason = `cannot process an unverified event (${paymentEvent.verificationStatus})`;
+    paymentEvent.retryCount = (paymentEvent.retryCount || 0) + 1;
+    await paymentEvent.save();
+    return { outcome: 'failed', reason: paymentEvent.failureReason };
+  }
+
   const normalized = {
     eventType: paymentEvent.eventType,
     rawEventType: paymentEvent.rawEventType,
     transactionId: paymentEvent.transactionId,
     parentTransactionId: paymentEvent.parentTransactionId,
-    productExternalId: paymentEvent.productExternalId,
+    externalProductId: paymentEvent.externalProductId,
     customerEmail: paymentEvent.customerEmail,
     customerName: paymentEvent.customerName,
     amount: paymentEvent.amount,
     currency: paymentEvent.currency,
+    occurredAt: paymentEvent.receivedAt,
   };
 
   let result;
   try {
-    result = await applyEvent({ event: normalized, provider: paymentEvent.provider, paymentEventId: paymentEvent._id });
+    result = await applyEvent({ event: normalized });
   } catch (err) {
     logger.error('Entitlement processing failed:', err.message);
+    paymentEvent.processingStatus = PROCESSING_STATUS.FAILED;
     paymentEvent.processed = false;
     paymentEvent.failureReason = err.message;
-    paymentEvent.attempts = (paymentEvent.attempts || 0) + 1;
+    paymentEvent.retryCount = (paymentEvent.retryCount || 0) + 1;
     await paymentEvent.save();
-    return { outcome: 'error', reason: err.message };
+    return { outcome: 'failed', reason: err.message };
   }
 
-  paymentEvent.attempts = (paymentEvent.attempts || 0) + 1;
+  paymentEvent.retryCount = (paymentEvent.retryCount || 0) + 1;
   if (result.outcome === 'pending_mapping') {
+    paymentEvent.processingStatus = PROCESSING_STATUS.PENDING_MAPPING;
     paymentEvent.processed = false;
-    paymentEvent.pendingMapping = true;
     paymentEvent.failureReason = result.reason || 'product not mapped';
-  } else {
+  } else if (result.outcome === 'ignored') {
+    paymentEvent.processingStatus = PROCESSING_STATUS.IGNORED;
     paymentEvent.processed = true;
-    paymentEvent.pendingMapping = false;
+    paymentEvent.processedAt = new Date();
+    paymentEvent.failureReason = result.reason || '';
+  } else {
+    paymentEvent.processingStatus = PROCESSING_STATUS.PROCESSED;
+    paymentEvent.processed = true;
     paymentEvent.processedAt = new Date();
     paymentEvent.failureReason = '';
     if (result.customer) paymentEvent.customerId = result.customer._id;
@@ -336,6 +380,6 @@ module.exports = {
   applyEvent,
   grantEntitlement,
   revokeEntitlement,
-  findProductForExternalId,
+  resolveMapping,
   findOrCreateCustomerByEmail,
 };
