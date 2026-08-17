@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Package, LifeBuoy, ChevronDown, LogOut, User as UserIcon, MessagesSquare } from 'lucide-react';
+import { LayoutGrid, Package, LifeBuoy, ChevronDown, LogOut, User as UserIcon } from 'lucide-react';
 import cn from '../../utils/cn';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { Avatar } from '../ui';
@@ -17,7 +17,6 @@ const LINKS = [
   { to: '/portal/dashboard', label: 'Dashboard', icon: LayoutGrid },
   { to: '/portal/products', label: 'My Products', icon: Package },
   { to: '/portal/support', label: 'Support', icon: LifeBuoy },
-  { to: '/portal/conversations', label: 'Messages', icon: MessagesSquare },
 ];
 
 export default function PortalNavbar() {

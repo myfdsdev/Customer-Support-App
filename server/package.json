@@ -13,7 +13,8 @@
     "seed:fresh": "node seed/seed.js --fresh",
     "reindex": "node seed/reindex.js",
     "verify:portal": "node scripts/verifyPortal.js",
-    "smoke:portal": "node scripts/smokePortal.js"
+    "smoke:portal": "node scripts/smokePortal.js",
+    "dev:portal-demo": "node scripts/devPortalDemo.js"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",

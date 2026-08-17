@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bot, Users, Package, RefreshCw, Sparkles } from 'lucide-react';
+import { Headphones, Package, RefreshCw, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Spinner, ErrorState, EmptyState, Button } from '../../components/ui';
 import { portalService } from '../../services/portalApi';
 import { usePortalAuth } from '../../context/PortalAuthContext';
@@ -21,9 +21,10 @@ function greeting() {
   return 'Good evening';
 }
 
-function Section({ title, action, children }) {
+/** Section wrapper with a title and an optional right-aligned action. */
+function Panel({ title, action, children, className }) {
   return (
-    <section className="mt-8">
+    <section className={className}>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-ink-900">{title}</h2>
         {action}
@@ -87,134 +88,120 @@ export default function Dashboard() {
     discoveryProducts = [],
     recommendations = [],
     announcements = [],
-    dashboardCards = [],
   } = data || {};
 
   const hasProducts = purchasedProducts.length > 0;
+  // Cap the "Your Apps" grid at three, matching the wireframe; the rest live
+  // behind "See all apps".
+  const appsPreview = purchasedProducts.slice(0, 3);
 
   return (
-    <div>
+    <div className="space-y-6">
       {/* Greeting */}
       <div>
         <h1 className="text-2xl font-semibold text-ink-900">
-          {greeting()}, {customer?.firstName || 'there'}
+          {greeting()}, {customer?.firstName || 'there'} <span aria-hidden="true">👋</span>
         </h1>
         <p className="mt-1 text-ink-500">Everything you need, all in one place.</p>
       </div>
 
-      {/* Featured marketing cards (clearly labelled) */}
-      {dashboardCards.length > 0 && (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {dashboardCards.map((c) => (
-            <RecommendationCard key={c._id} item={c} onClick={trackRec} />
-          ))}
-        </div>
-      )}
-
       {/* Continue where you left off */}
       {continueUsing && (
-        <div className="mt-6">
-          <ContinueProductCard product={continueUsing} onLaunch={launch} launching={launchingId === continueUsing._id} />
-        </div>
+        <ContinueProductCard product={continueUsing} onLaunch={launch} launching={launchingId === continueUsing._id} />
       )}
 
-      {/* Your Apps */}
-      <Section
-        title="Your Apps"
-        action={
-          <Button variant="ghost" size="sm" onClick={onRefreshPurchases} loading={refreshing}>
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </Button>
-        }
-      >
-        {hasProducts ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {purchasedProducts.map((p) => (
-              <PurchasedProductCard key={p._id} product={p} onLaunch={launch} launching={launchingId === p._id} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            icon={Package}
-            title="No products linked to this account"
-            description="If you’ve purchased and don’t see it here, refresh your purchases or contact support."
-            action={
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <Button onClick={onRefreshPurchases} loading={refreshing}>
-                  <RefreshCw className="h-4 w-4" /> Refresh purchases
-                </Button>
-                <Link to="/portal/support" className="btn-secondary">
-                  Contact support
-                </Link>
-              </div>
-            }
-          />
-        )}
-      </Section>
+      {/* Your Apps (2/3) + Need Help (1/3) */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Panel
+          className="lg:col-span-2"
+          title="Your Apps"
+          action={
+            hasProducts && (
+              <Link to="/portal/products" className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline">
+                See all apps <ArrowRight className="h-4 w-4" />
+              </Link>
+            )
+          }
+        >
+          {hasProducts ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {appsPreview.map((p) => (
+                <PurchasedProductCard key={p._id} product={p} onLaunch={launch} launching={launchingId === p._id} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={Package}
+              title="No products linked to this account"
+              description="If you’ve purchased and don’t see it here, refresh your purchases or contact support."
+              action={
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Button onClick={onRefreshPurchases} loading={refreshing}>
+                    <RefreshCw className="h-4 w-4" /> Refresh purchases
+                  </Button>
+                  <Link to="/portal/support" className="btn-secondary">Contact support</Link>
+                </div>
+              }
+            />
+          )}
+        </Panel>
 
-      {/* Discovery (admin-approved) */}
+        {/* Need Help */}
+        <Panel title="Need Help?">
+          <div className="card flex h-[calc(100%-2.25rem)] flex-col items-center p-6 text-center">
+            <span className="grid h-14 w-14 place-items-center rounded-full bg-brand-50 text-brand-700">
+              <Headphones className="h-7 w-7" />
+            </span>
+            <p className="mt-4 text-sm text-ink-600">Chat with our team or find a quick answer.</p>
+            <div className="mt-4 flex w-full flex-col gap-2">
+              <Link to="/portal/support" className="btn-primary justify-center">Get Support</Link>
+              <Link to="/portal/conversations" className="btn-secondary justify-center">Browse conversations</Link>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      {/* Discovery products for customers with nothing purchased yet */}
       {!hasProducts && discoveryProducts.length > 0 && (
-        <Section title="Explore">
+        <Panel title="Explore">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {discoveryProducts.map((p) => (
               <PurchasedProductCard key={p._id} product={p} onLaunch={launch} launching={false} />
             ))}
           </div>
-        </Section>
+        </Panel>
       )}
 
-      {/* Need help */}
-      <Section title="Need help?">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Link to="/portal/support" className="card flex items-center gap-4 p-5 transition-shadow hover:shadow-pop">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-ink-100 text-ink-700">
-              <Bot className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="font-semibold text-ink-900">Chat with AI</p>
-              <p className="text-sm text-ink-500">Instant answers about your products.</p>
-            </div>
-          </Link>
-          <Link to="/portal/support" className="card flex items-center gap-4 p-5 transition-shadow hover:shadow-pop">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-50 text-brand-700">
-              <Users className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="font-semibold text-ink-900">Chat with Our Team</p>
-              <p className="text-sm text-ink-500">Talk to a real person on our support team.</p>
-            </div>
-          </Link>
+      {/* What's New (1/2) + Recommended (1/2) */}
+      {(announcements.length > 0 || recommendations.length > 0) && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {announcements.length > 0 && (
+            <Panel title="What’s New">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {announcements.slice(0, 2).map((a) => (
+                  <AnnouncementCard key={a._id} item={a} />
+                ))}
+              </div>
+            </Panel>
+          )}
+
+          {recommendations.length > 0 && (
+            <Panel title="Recommended for You">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {recommendations.slice(0, 2).map((r) => (
+                  <RecommendationCard key={r._id} item={r} onClick={trackRec} />
+                ))}
+              </div>
+            </Panel>
+          )}
         </div>
-      </Section>
-
-      {/* What's New */}
-      {announcements.length > 0 && (
-        <Section title="What’s New">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {announcements.map((a) => (
-              <AnnouncementCard key={a._id} item={a} />
-            ))}
-          </div>
-        </Section>
       )}
 
-      {/* Recommended for you */}
-      {recommendations.length > 0 && (
-        <Section
-          title="Recommended for you"
-          action={
-            <span className="inline-flex items-center gap-1 text-xs text-ink-400">
-              <Sparkles className="h-3.5 w-3.5" /> Sponsored suggestions
-            </span>
-          }
-        >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {recommendations.map((r) => (
-              <RecommendationCard key={r._id} item={r} onClick={trackRec} />
-            ))}
-          </div>
-        </Section>
-      )}
+      {/* Trust strip */}
+      <div className="flex items-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm text-ink-600">
+        <ShieldCheck className="h-5 w-5 text-brand-600" />
+        Your purchases are protected and linked to your account.
+      </div>
     </div>
   );
 }

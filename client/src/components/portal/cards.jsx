@@ -1,39 +1,67 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ExternalLink, CheckCircle2, Sparkles, MessageSquare } from 'lucide-react';
+import { ArrowRight, ExternalLink, CheckCircle2, Gift, ShieldCheck, Sparkles, Star, MessageSquare } from 'lucide-react';
 import cn from '../../utils/cn';
 import { ProductLogo, Badge } from '../ui';
 import { timeAgo } from '../../utils/format';
 
 /* --------------------------------------------------------------------------
- * Reusable customer-portal cards. All presentational — data comes from the
- * dashboard/product endpoints, never composed on the client.
+ * Reusable customer-portal cards, laid out to match the approved wireframe.
+ * All presentational — data comes from the dashboard/product endpoints.
  * ----------------------------------------------------------------------- */
+
+/** A light workspace doodle for the "Continue" hero — decorative only. */
+export function WorkspaceScene({ className }) {
+  return (
+    <svg viewBox="0 0 340 180" fill="none" className={className} aria-hidden="true">
+      {/* plant */}
+      <path d="M60 150c-6-20-4-38 6-46" stroke="#8ec400" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M66 150c8-16 8-34 0-44" stroke="#8ec400" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M66 150c10-14 22-22 34-22" stroke="#8ec400" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M50 150h34l-4 20H54z" stroke="#334155" strokeWidth="2.5" strokeLinejoin="round" />
+      {/* laptop */}
+      <rect x="150" y="60" width="130" height="80" rx="6" stroke="#334155" strokeWidth="2.5" />
+      <path d="M138 150h154l-8-10H146z" stroke="#334155" strokeWidth="2.5" strokeLinejoin="round" />
+      <circle cx="215" cy="100" r="18" fill="#f0fccf" stroke="#8ec400" strokeWidth="2.5" />
+      <path d="M210 92l12 8-12 8z" fill="#8ec400" />
+      <path d="M250 82h20M250 94h20M250 106h14" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
+      {/* mug */}
+      <rect x="300" y="120" width="26" height="24" rx="4" stroke="#334155" strokeWidth="2.5" />
+      <path d="M326 126h6a5 5 0 0 1 0 10h-6" stroke="#334155" strokeWidth="2.5" />
+      <path d="M308 112c0-4 6-4 6-8M318 112c0-4 6-4 6-8" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 /** Big "Continue where you left off" hero card. */
 export function ContinueProductCard({ product, onLaunch, launching }) {
   if (!product) return null;
   return (
     <div className="card overflow-hidden">
-      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-4">
-          <ProductLogo product={product} className="h-14 w-14 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-brand-700">Continue where you left off</p>
-            <h3 className="truncate text-lg font-semibold text-ink-900">{product.name}</h3>
-            {product.tagline && <p className="truncate text-sm text-ink-500">{product.tagline}</p>}
+      <div className="grid items-center gap-4 p-6 md:grid-cols-[1fr_auto]">
+        <div>
+          <p className="text-lg font-semibold text-ink-900">Continue where you left off</p>
+          <div className="mt-4 flex items-center gap-4">
+            <ProductLogo product={product} className="h-16 w-16 shrink-0 rounded-2xl" />
+            <div className="min-w-0">
+              <Link to={product.productUrl} className="block truncate text-xl font-semibold text-ink-900 hover:text-brand-700">
+                {product.name}
+              </Link>
+              <p className="truncate text-sm text-ink-500">{product.tagline || 'Your workspace is ready'}</p>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {product.canLaunch && (
+              <button type="button" onClick={() => onLaunch(product)} className="btn-primary" disabled={launching}>
+                Open App <ExternalLink className="h-4 w-4" />
+              </button>
+            )}
+            <Link to={product.productUrl} className="btn-secondary">
+              View product
+            </Link>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Link to={product.productUrl} className="btn-secondary">
-            View product
-          </Link>
-          {product.canLaunch && (
-            <button type="button" onClick={() => onLaunch(product)} className="btn-primary" disabled={launching}>
-              Open App <ExternalLink className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        <WorkspaceScene className="hidden h-40 w-72 md:block" />
       </div>
     </div>
   );
@@ -41,61 +69,77 @@ export function ContinueProductCard({ product, onLaunch, launching }) {
 
 /** Product tile in the "Your Apps" grid. */
 export function PurchasedProductCard({ product, onLaunch, launching }) {
+  const owned = !product.discovery;
   return (
     <div className="card flex flex-col overflow-hidden transition-shadow hover:shadow-pop">
-      <Link to={product.productUrl} className="flex flex-1 flex-col gap-3 p-5">
-        <div className="flex items-start justify-between gap-2">
-          <ProductLogo product={product} className="h-12 w-12" />
-          {product.discovery ? (
-            <Badge tone="indigo">Available</Badge>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Purchased
-            </span>
-          )}
-        </div>
-        <div>
-          <h3 className="font-semibold text-ink-900">{product.name}</h3>
-          <p className="mt-0.5 line-clamp-2 text-sm text-ink-500">{product.shortDescription}</p>
+      <Link to={product.productUrl} className="flex items-center gap-3 p-4">
+        <ProductLogo product={product} className="h-11 w-11 shrink-0" />
+        <div className="min-w-0">
+          <h3 className="truncate font-semibold text-ink-900">{product.name}</h3>
+          {product.shortDescription && <p className="truncate text-xs text-ink-500">{product.shortDescription}</p>}
         </div>
       </Link>
-      <div className="flex items-center gap-2 border-t border-ink-100 px-5 py-3">
-        <Link to={product.productUrl} className="btn-secondary flex-1 justify-center">
-          View product
-        </Link>
-        {product.canLaunch && (
+      <div className="mt-auto flex items-center justify-between border-t border-ink-100 px-4 py-2.5">
+        {owned ? (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-700">
+            <CheckCircle2 className="h-4 w-4" /> Purchased
+          </span>
+        ) : (
+          <Badge tone="indigo">Available</Badge>
+        )}
+        {owned && product.canLaunch ? (
           <button
             type="button"
             onClick={() => onLaunch(product)}
-            className="btn-primary shrink-0"
+            className="btn-secondary !border-brand-300 !text-brand-700 hover:!bg-brand-50"
             disabled={launching}
-            title="Open App"
           >
-            <ExternalLink className="h-4 w-4" />
+            Open
           </button>
+        ) : (
+          <Link to={product.productUrl} className="btn-secondary !border-brand-300 !text-brand-700 hover:!bg-brand-50">
+            {owned ? 'View' : 'Learn more'}
+          </Link>
         )}
       </div>
     </div>
   );
 }
 
+/** Icon chosen from the disclosure badge, matching the wireframe's motif. */
+function recIcon(badge) {
+  if (badge === 'Upgrade' || badge === 'Add-on') return Gift;
+  if (badge === 'Featured') return Star;
+  if (badge === 'New') return Sparkles;
+  return ShieldCheck;
+}
+
 /** A marketing/recommendation card — always carries a disclosure badge. */
 export function RecommendationCard({ item, onClick }) {
+  const Icon = recIcon(item.badge);
   const inner = (
     <>
-      <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-1 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-800">
-          <Sparkles className="h-3 w-3" /> {item.badge}
+      <div className="flex items-start gap-3">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-700">
+          <Icon className="h-5 w-5" />
         </span>
-        <ArrowRight className="h-4 w-4 text-ink-300" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="truncate font-semibold text-ink-900">{item.title}</h3>
+            <span className="shrink-0 rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-800">
+              {item.badge}
+            </span>
+          </div>
+          {item.description && <p className="mt-0.5 line-clamp-2 text-sm text-ink-500">{item.description}</p>}
+        </div>
       </div>
-      <h3 className="mt-3 font-semibold text-ink-900">{item.title}</h3>
-      {item.description && <p className="mt-1 line-clamp-3 text-sm text-ink-500">{item.description}</p>}
-      {item.ctaText && <span className="mt-3 inline-block text-sm font-medium text-brand-700">{item.ctaText}</span>}
+      <div className="mt-3 flex items-center justify-end">
+        <span className="btn-secondary !border-brand-300 !text-brand-700">{item.ctaText || 'View Offer'}</span>
+      </div>
     </>
   );
 
-  const className = 'card block p-5 text-left transition-shadow hover:shadow-pop';
+  const className = 'card block p-4 text-left transition-shadow hover:shadow-pop';
   if (item.href && !item.external) {
     return (
       <Link to={item.href} onClick={() => onClick?.(item)} className={className}>
@@ -118,20 +162,32 @@ export function RecommendationCard({ item, onClick }) {
 
 /** A "What's New" announcement / product-update card. */
 export function AnnouncementCard({ item }) {
-  return (
-    <div className="card overflow-hidden p-5">
-      <div className="flex items-center gap-2">
-        <Badge tone={item.type === 'Product Update' ? 'indigo' : 'green'}>{item.type}</Badge>
-        {item.product && <span className="text-xs text-ink-400">{item.product.name}</span>}
+  const body = (
+    <div className="card flex gap-4 p-4 transition-shadow hover:shadow-pop">
+      <div className="grid h-16 w-20 shrink-0 place-items-center overflow-hidden rounded-lg bg-ink-100">
+        {item.imageUrl ? (
+          <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <Sparkles className="h-6 w-6 text-ink-400" />
+        )}
       </div>
-      <h3 className="mt-2 font-semibold text-ink-900">{item.title}</h3>
-      {item.content && <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-sm text-ink-600">{item.content}</p>}
-      {item.linkUrl && (
-        <a href={item.linkUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline">
-          {item.linkText || 'Learn more'} <ArrowRight className="h-3.5 w-3.5" />
-        </a>
-      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <h3 className="truncate font-semibold text-ink-900">{item.title}</h3>
+        </div>
+        {item.content && <p className="mt-0.5 line-clamp-2 text-sm text-ink-500">{item.content}</p>}
+        <span className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-brand-700">
+          Read More <ArrowRight className="h-3.5 w-3.5" />
+        </span>
+      </div>
     </div>
+  );
+  return item.linkUrl ? (
+    <a href={item.linkUrl} target="_blank" rel="noreferrer">
+      {body}
+    </a>
+  ) : (
+    body
   );
 }
 
