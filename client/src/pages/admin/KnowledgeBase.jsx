@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, BookOpen, Pencil, Trash2, RefreshCw, Power } from 'lucide-react';
+import { Plus, Search, BookOpen, Pencil, Trash2, RefreshCw, Power, Upload } from 'lucide-react';
 import { knowledgeService, productService } from '../../services/endpoints';
 import { useToast } from '../../context/ToastContext';
 import PageHeader from '../../components/admin/PageHeader';
@@ -23,6 +23,11 @@ export default function KnowledgeBase() {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [reindexing, setReindexing] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importProductId, setImportProductId] = useState('');
+  const [importText, setImportText] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
 
   const productId = params.get('productId') || '';
   const category = params.get('category') || '';
@@ -142,6 +147,47 @@ export default function KnowledgeBase() {
     }
   }
 
+  function openImport() {
+    setImportResult(null);
+    setImportText('');
+    setImportProductId(productId || '');
+    setImportOpen(true);
+  }
+
+  async function onImportFile(file) {
+    if (!file) return;
+    try {
+      setImportText(await file.text());
+    } catch {
+      toast.error('Could not read that file');
+    }
+  }
+
+  async function runImport() {
+    let parsed;
+    try {
+      parsed = JSON.parse(importText);
+    } catch {
+      toast.error('That is not valid JSON');
+      return;
+    }
+    setImporting(true);
+    try {
+      // Send the parsed JSON plus the chosen product; the server resolves the
+      // product and runs it through the same indexing pipeline the forms use.
+      const payload = { json: parsed };
+      if (importProductId) payload.productId = importProductId;
+      const res = await knowledgeService.importJson(payload);
+      setImportResult(res);
+      toast.success(`Imported ${res.knowledge.created + res.knowledge.updated} article(s) into ${res.product.name}`);
+      load();
+    } catch (err) {
+      toast.error(err.friendlyMessage);
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -149,6 +195,9 @@ export default function KnowledgeBase() {
         description="The only source the AI is allowed to answer from. Knowledge never crosses products."
         actions={
           <>
+            <Button variant="secondary" onClick={openImport}>
+              <Upload className="h-4 w-4" /> Import JSON
+            </Button>
             <Button variant="secondary" onClick={reindex} loading={reindexing}>
               <RefreshCw className="h-4 w-4" /> Reindex
             </Button>
@@ -329,6 +378,74 @@ export default function KnowledgeBase() {
             description="Disabled items are excluded from AI retrieval and the help centre."
           />
         </form>
+      </Modal>
+
+      {/* Import JSON */}
+      <Modal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import knowledge from JSON"
+        description="Paste or upload a JSON file. Articles are added to the product's knowledge base and indexed for the AI immediately. Re-importing updates by title (no duplicates)."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setImportOpen(false)}>Close</Button>
+            <Button onClick={runImport} loading={importing} disabled={!importText.trim()}>
+              <Upload className="h-4 w-4" /> Import
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <Select
+            label="Product"
+            value={importProductId}
+            onChange={(e) => setImportProductId(e.target.value)}
+            hint="Optional if your JSON has a &quot;product&quot; field with the slug."
+          >
+            <option value="">Use the &quot;product&quot; field in the JSON</option>
+            {products.map((p) => (
+              <option key={p._id} value={p._id}>{p.name}</option>
+            ))}
+          </Select>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink-700">Upload a .json file</label>
+            <input
+              type="file"
+              accept="application/json,.json"
+              onChange={(e) => onImportFile(e.target.files?.[0])}
+              className="block w-full text-sm text-ink-600 file:mr-3 file:rounded-lg file:border-0 file:bg-ink-100 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-ink-200"
+            />
+          </div>
+
+          <Textarea
+            label="…or paste JSON"
+            rows={10}
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            placeholder={'{\n  "product": "your-product-slug",\n  "knowledge": [\n    { "title": "How do I reset my password?", "category": "Login", "content": "…" }\n  ]\n}'}
+            className="font-mono text-xs"
+          />
+
+          {importResult && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+              <p className="font-semibold">Imported into {importResult.product.name}</p>
+              <p className="mt-1">
+                Articles: {importResult.knowledge.created} new · {importResult.knowledge.updated} updated ·{' '}
+                {importResult.knowledge.chunks} chunks indexed
+                {importResult.knowledge.failed ? ` · ${importResult.knowledge.failed} skipped` : ''}
+              </p>
+              {(importResult.videos.created + importResult.videos.updated) > 0 && (
+                <p>Videos: {importResult.videos.created} new · {importResult.videos.updated} updated</p>
+              )}
+              {importResult.errors?.length > 0 && (
+                <ul className="mt-2 list-disc pl-5 text-xs text-emerald-900/80">
+                  {importResult.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );

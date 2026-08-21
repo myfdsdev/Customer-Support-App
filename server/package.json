@@ -9,6 +9,7 @@
     "dev": "nodemon server.js",
     "dev:memory": "node scripts/memoryDb.js",
     "diagnose": "node scripts/diagnose.js",
+    "import:kb": "node scripts/importKnowledge.js",
     "seed": "node seed/seed.js",
     "seed:fresh": "node seed/seed.js --fresh",
     "reindex": "node seed/reindex.js",

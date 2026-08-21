@@ -43,6 +43,7 @@ export const knowledgeService = {
   categories: () => api.get('/knowledge/categories').then(unwrap),
   testRetrieval: (payload) => api.post('/knowledge/test-retrieval', payload).then(unwrap),
   reindex: (productId) => api.post('/knowledge/reindex', { productId }).then(unwrap),
+  importJson: (payload) => api.post('/knowledge/import-json', payload).then(unwrap),
 };
 
 export const trainingService = {

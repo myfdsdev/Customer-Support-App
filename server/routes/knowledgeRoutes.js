@@ -12,6 +12,8 @@ router.use(authenticateUser, requireAgent);
 router.get('/categories', ctrl.categories);
 router.post('/test-retrieval', validateProductAccess('body'), ctrl.testRetrieval);
 router.post('/reindex', requireManager, ctrl.reindex);
+// Bulk import from a JSON payload — articles + optional videos in one shot.
+router.post('/import-json', requireManager, ctrl.importJson);
 
 router.get('/', ctrl.listKnowledge);
 router.post(

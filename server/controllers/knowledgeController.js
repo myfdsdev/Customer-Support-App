@@ -179,6 +179,35 @@ const reindex = asyncHandler(async (req, res) => {
   res.json({ success: true, data: result });
 });
 
+/**
+ * POST /api/knowledge/import-json
+ * Bulk-imports articles (and optional videos) from a JSON payload into the
+ * product-scoped knowledge base, then indexes them — so the AI answers from
+ * them immediately. Body: the JSON object itself, or { json, productId }.
+ */
+const importJson = asyncHandler(async (req, res) => {
+  const importer = require('../services/knowledge/jsonImporter');
+
+  // Accept either the raw JSON as the body, or { json, product/productId }.
+  const payload = req.body && (req.body.json || req.body.knowledge || Array.isArray(req.body))
+    ? (req.body.json || req.body)
+    : req.body;
+
+  let productHint = req.body.productId || req.body.product || '';
+  // If a productId was given, translate it to a slug the importer can resolve.
+  if (req.body.productId) {
+    const p = await Product.findById(req.body.productId).select('slug');
+    if (p) productHint = p.slug;
+  }
+
+  const result = await importer.importFromObject(payload, {
+    productHint,
+    actorId: req.user._id,
+  });
+
+  res.json({ success: true, data: result });
+});
+
 /** GET /api/knowledge/categories */
 const categories = asyncHandler(async (_req, res) => {
   res.json({ success: true, data: KNOWLEDGE_CATEGORIES });
@@ -193,5 +222,6 @@ module.exports = {
   toggleKnowledge,
   testRetrieval,
   reindex,
+  importJson,
   categories,
 };

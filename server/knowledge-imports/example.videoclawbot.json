@@ -1,0 +1,34 @@
+{
+  "_comment": "Example import. Rename to <your-product-slug>.json (or set the product field) and edit. Then run: npm run import:kb --prefix server",
+  "product": "videoclawbot",
+  "knowledge": [
+    {
+      "title": "How do I reset my password?",
+      "category": "Login",
+      "content": "Open Settings → Security → Reset password. We email you a secure link that is valid for 60 minutes. If it expires, just request a new one.",
+      "keywords": ["password", "reset", "login", "security"],
+      "summary": "Reset your password from Settings → Security."
+    },
+    {
+      "title": "What video formats are supported?",
+      "category": "Features",
+      "content": "You can upload MP4, MOV and WebM files up to 4GB each. For best results export at 1080p or higher.",
+      "keywords": ["formats", "upload", "mp4", "mov", "webm"]
+    },
+    {
+      "title": "How does billing work?",
+      "category": "Billing",
+      "content": "Plans are billed monthly. You can upgrade, downgrade or cancel any time from Settings → Billing. Cancelling keeps access until the end of the current period.",
+      "keywords": ["billing", "subscription", "cancel", "upgrade"]
+    }
+  ],
+  "videos": [
+    {
+      "title": "Getting started in 3 minutes",
+      "videoUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "category": "Tutorial",
+      "description": "A quick tour of the main features to get you productive fast.",
+      "keywords": ["intro", "getting started", "tour"]
+    }
+  ]
+}
