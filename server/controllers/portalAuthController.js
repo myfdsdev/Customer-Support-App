@@ -3,7 +3,7 @@
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const env = require('../config/env');
-const logger = require('../utils/logger');
+const mail = require('../services/mail');
 const {
   signCustomerToken,
   newOpaqueToken,
@@ -75,17 +75,13 @@ const register = asyncHandler(async (req, res) => {
 
   await customer.setPassword(password);
 
-  // Email verification is opt-in (no mail transport wired up by default).
+  // Email verification is opt-in.
+  let verificationRaw = null;
   if (env.portal.requireEmailVerification) {
-    const raw = newOpaqueToken();
-    customer.emailVerificationTokenHash = hashOpaqueToken(raw);
+    verificationRaw = newOpaqueToken();
+    customer.emailVerificationTokenHash = hashOpaqueToken(verificationRaw);
     customer.emailVerificationExpiresAt = new Date(Date.now() + env.portal.resetTokenMinutes * 60000);
     customer.emailVerified = false;
-    // The link would be emailed here. With no transport, log it in dev so the
-    // flow is testable, and surface a flag to the client.
-    if (!env.isProd) {
-      logger.info(`[portal] Email verification link: ${verifyUrl(raw)}`);
-    }
   } else {
     customer.emailVerified = true;
     customer.emailVerifiedAt = new Date();
@@ -93,6 +89,14 @@ const register = asyncHandler(async (req, res) => {
 
   customer.lastLoginAt = new Date();
   await customer.save();
+
+  // Fire the welcome (or verification) email. Best-effort: the mail service
+  // logs its own errors and never throws, so a mail problem never fails signup.
+  if (verificationRaw) {
+    mail.sendVerificationEmail(customer, verifyUrl(verificationRaw)).catch(() => {});
+  } else {
+    mail.sendWelcomeEmail(customer).catch(() => {});
+  }
 
   // If verification is required, do not establish a session yet.
   if (env.portal.requireEmailVerification) {
@@ -198,9 +202,10 @@ const forgotPassword = asyncHandler(async (req, res) => {
     customer.passwordResetExpiresAt = new Date(Date.now() + env.portal.resetTokenMinutes * 60000);
     await customer.save();
 
-    // With a mail transport, the link is emailed here. Until then, log it in
-    // development so the flow can be exercised end to end.
-    if (!env.isProd) logger.info(`[portal] Password reset link: ${resetUrl(raw)}`);
+    // Email the reset link. Fire-and-forget on purpose: awaiting only in the
+    // "account exists" branch would leak account existence via response timing.
+    // The mail service logs the link itself when no transport is configured.
+    mail.sendPasswordResetEmail(customer, resetUrl(raw)).catch(() => {});
   }
 
   return res.json(generic);

@@ -3,6 +3,9 @@
 const fs = require('fs');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
+const env = require('../config/env');
+const logger = require('../utils/logger');
+const mail = require('../services/mail');
 const { hashIp } = require('../utils/tokens');
 const { parseCsv } = require('../utils/csv');
 const entitlements = require('../services/integrations/entitlementService');
@@ -131,6 +134,9 @@ const importCsv = asyncHandler(async (req, res) => {
   // Commit mode: upsert idempotently into the central entitlement table.
   const totals = { created: 0, updated: 0, skipped: 0, failed: 0 };
   const failures = [];
+  // Everyone who ends up with ACTIVE access in this import gets a heads-up email.
+  // Keyed by email so a customer listed twice is only mailed once.
+  const recipientsByEmail = new Map();
 
   for (let i = 0; i < valid.length; i += 1) {
     const record = valid[i];
@@ -175,6 +181,14 @@ const importCsv = asyncHandler(async (req, res) => {
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
+      if (!isRevoked && customer.email) {
+        recipientsByEmail.set(customer.email, {
+          email: customer.email,
+          name: customer.name || record.name || '',
+          hasPortalAccount: Boolean(customer.hasPortalAccount),
+        });
+      }
+
       if (existing) totals.updated += 1;
       else totals.created += 1;
     } catch (err) {
@@ -183,6 +197,20 @@ const importCsv = asyncHandler(async (req, res) => {
     }
   }
   totals.skipped = invalid.length;
+
+  // Notify every newly-active customer. Opt out per-request with notify=false;
+  // MAIL_CSV_IMPORT_NOTIFY is the global kill switch.
+  const notifyRequested = !(req.body.notify === 'false' || req.body.notify === false);
+  const recipients = Array.from(recipientsByEmail.values());
+  const willEmail = notifyRequested && env.mail.csvImportNotify && recipients.length > 0;
+  if (willEmail) {
+    // Deliver in the background so a large import doesn't hold the request open;
+    // the batch sender chunks to 100/call and paces itself under the rate limit.
+    mail
+      .sendAccessGrantedBatch(recipients, { productName: product.name })
+      .then((r) => logger.info(`[csv-import] ${product.name}: access emails ${r.sent} sent, ${r.failed} failed`))
+      .catch((err) => logger.error(`[csv-import] access email batch error: ${err.message}`));
+  }
 
   await AuditLog.record({
     actorId: req.user._id,
@@ -202,6 +230,11 @@ const importCsv = asyncHandler(async (req, res) => {
       mode: 'commit',
       product: { _id: product._id, name: product.name },
       totals,
+      emails: {
+        enabled: mail.isEnabled(),
+        notified: willEmail,
+        queued: willEmail ? recipients.length : 0,
+      },
       invalid: invalid.slice(0, 100),
       failures: failures.slice(0, 100),
     },

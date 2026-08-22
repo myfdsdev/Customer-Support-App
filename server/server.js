@@ -7,6 +7,7 @@ const { connectDB, disconnectDB } = require('./config/db');
 const app = require('./app');
 const { initSockets } = require('./sockets');
 const gemini = require('./services/gemini');
+const mail = require('./services/mail');
 
 async function start() {
   await connectDB();
@@ -21,6 +22,11 @@ async function start() {
       logger.info(`Gemini enabled (${gemini.modelName()})`);
     } else {
       logger.warn('GEMINI_API_KEY is not set — running with keyword retrieval and extractive answers.');
+    }
+    if (mail.isEnabled()) {
+      logger.info(`Mail enabled (Resend, from ${env.mail.from})`);
+    } else {
+      logger.warn('RESEND_API_KEY/MAIL_FROM not set — transactional emails will be logged, not sent.');
     }
   });
 

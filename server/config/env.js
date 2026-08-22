@@ -74,6 +74,30 @@ const env = {
     },
   },
 
+  /**
+   * Transactional email (Resend).
+   *
+   * With no RESEND_API_KEY the mail service is disabled and simply logs what it
+   * would have sent — sign-up, password-reset and CSV-import flows keep working,
+   * they just don't deliver mail. `from` must be an address on a domain you have
+   * verified in Resend (for a quick test, `onboarding@resend.dev` only delivers
+   * to the Resend account owner). See services/mail/index.js.
+   */
+  mail: {
+    apiKey: process.env.RESEND_API_KEY || '',
+    from: process.env.MAIL_FROM || '',
+    replyTo: process.env.MAIL_REPLY_TO || '',
+    appName: process.env.APP_NAME || 'Customer Support',
+    brandColor: process.env.MAIL_BRAND_COLOR || '#4f46e5',
+    /** Ms to wait between batch calls so bulk sends stay under Resend's rate limit. */
+    batchDelayMs: num(process.env.MAIL_BATCH_DELAY_MS, 600),
+    /** Global kill switch for the "email everyone" step of a CSV import. */
+    csvImportNotify: bool(process.env.MAIL_CSV_IMPORT_NOTIFY, true),
+    get enabled() {
+      return Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM);
+    },
+  },
+
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || '',
     model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
