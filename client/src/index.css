@@ -1,6 +1,33 @@
+/* Self-hosted Unbounded (variable font, 200..900) — NO Google-Fonts dependency,
+   so it renders even where fonts.googleapis.com is blocked. The .ttf ships in
+   client/public/fonts and is served at /fonts/... */
+@font-face {
+  font-family: 'Unbounded';
+  src: url('/fonts/Unbounded-VariableFont_wght.ttf') format('truetype');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Guarantee the portal's font class resolves to Unbounded even if a long-running
+   dev server hasn't reprocessed tailwind.config.js. */
+.font-unbounded {
+  font-family: 'Unbounded', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Navbar top accent strip — radial white centre → lime edge. Vendor-prefixed
+   variants first, standard syntax last so modern engines use it (autoprefixer
+   also manages prefixes based on the browserslist). */
+.navbar-accent-bar {
+  background-image: -moz-radial-gradient(50% 50%, circle closest-side, rgb(255, 255, 255) 0%, rgb(142, 196, 0) 100%);
+  background-image: -webkit-radial-gradient(50% 50%, circle closest-side, rgb(255, 255, 255) 0%, rgb(142, 196, 0) 100%);
+  background-image: -ms-radial-gradient(50% 50%, circle closest-side, rgb(255, 255, 255) 0%, rgb(142, 196, 0) 100%);
+  background-image: radial-gradient(circle closest-side at 50% 50%, rgb(255, 255, 255) 0%, rgb(142, 196, 0) 100%);
+}
 
 @layer base {
   html {

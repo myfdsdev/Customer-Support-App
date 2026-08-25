@@ -9,9 +9,9 @@ import PortalNavbar from '../components/portal/PortalNavbar';
  */
 export default function PortalLayout() {
   return (
-    <div className="min-h-screen bg-ink-50 text-ink-800">
+    <div className="min-h-screen bg-white text-ink-800">
       <PortalNavbar />
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6">
         <Outlet />
       </main>
     </div>

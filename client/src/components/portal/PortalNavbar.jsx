@@ -7,11 +7,9 @@ import { Avatar } from '../ui';
 import NotificationMenu from './NotificationMenu';
 
 /**
- * Top navigation for the customer portal — no left sidebar, by design.
- *
- * Collapses to a hamburger-free horizontal scroll on mobile: the four
- * destinations always stay reachable without a menu, which is friendlier on a
- * phone than hiding them behind a toggle.
+ * Top navigation for the customer portal — "Fly Support" branding, a centred
+ * pill nav, and the notification + account cluster on the right. No left
+ * sidebar, by design (a flat, top-nav SaaS layout).
  */
 const LINKS = [
   { to: '/portal/dashboard', label: 'Dashboard', icon: LayoutGrid },
@@ -39,48 +37,51 @@ export default function PortalNavbar() {
   };
 
   return (
-    <header className="sticky top-0 z-20 border-b border-ink-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
+    <header className="sticky top-0 z-20 border-b border-ink-200/70 bg-white/95 font-unbounded backdrop-blur">
+      {/* Accent strip across the very top (full-bleed) — radial white→lime */}
+      <div className="navbar-accent-bar h-1.5 w-full" />
+      <div className="mx-auto flex h-20 max-w-[1600px] items-center gap-6 px-4 sm:px-6 lg:gap-10">
         {/* Brand */}
-        <Link to="/portal/dashboard" className="flex shrink-0 items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 font-bold text-ink-900">Y</span>
-          <span className="hidden text-base font-semibold text-ink-900 sm:block">YourLogo</span>
+        <Link to="/portal/dashboard" className="flex shrink-0 items-center">
+          <img src="/images/brand/fly-support-logo.png" alt="Fly Support" className="h-8 w-auto" />
         </Link>
 
-        {/* Primary nav */}
-        <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto scroll-thin px-1">
+        {/* Primary nav — grouped beside the brand (left of centre, per design) */}
+        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto scroll-thin sm:gap-2">
           {LINKS.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
                 cn(
-                  'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  isActive ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-100'
+                  'inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition-colors sm:px-5',
+                  isActive
+                    ? 'bg-brand-50 text-brand-800'
+                    : 'text-ink-700 hover:bg-ink-100 hover:text-ink-900'
                 )
               }
             >
-              <Icon className="h-4 w-4" />
-              {label}
+              <Icon className={cn('h-[18px] w-[18px]')} />
+              <span className="hidden sm:inline">{label}</span>
             </NavLink>
           ))}
         </nav>
 
-        {/* Right cluster */}
-        <div className="flex shrink-0 items-center gap-1">
+        {/* Right cluster — pushed to the far right */}
+        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
           <NotificationMenu />
 
           <div className="relative" ref={menuRef}>
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center gap-2 rounded-lg p-1 pr-2 hover:bg-ink-100"
+              className="flex items-center gap-2 rounded-full p-1 pr-2 hover:bg-ink-100"
             >
               <Avatar name={customer?.name || customer?.email} size="sm" />
-              <span className="hidden max-w-[120px] truncate text-sm font-medium text-ink-800 sm:block">
+              <span className="hidden max-w-[140px] truncate text-sm font-medium text-ink-800 sm:block">
                 {customer?.firstName || customer?.name || 'Account'}
               </span>
-              <ChevronDown className="h-4 w-4 text-ink-400" />
+              <ChevronDown className="hidden h-4 w-4 text-ink-400 sm:block" />
             </button>
 
             {menuOpen && (

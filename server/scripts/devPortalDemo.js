@@ -34,25 +34,29 @@ async function main() {
   await Product.updateOne({ _id: p1._id }, {
     $set: {
       launchUrl: 'https://example.com/app', accessMode: 'external_url',
+      logo: '/images/brand/clipsfield-studio.png',
       tagline: 'Your workspace is ready', dashboardVisibility: 'owners', featured: true, sortOrder: 1,
       'portalPage.heroTitle': p1.name, 'portalPage.heroSubtitle': 'Everything you need to create faster.',
       'portalPage.overviewContent': 'Welcome to your product. This page is fully admin-managed.',
     },
   });
-  if (p2) await Product.updateOne({ _id: p2._id }, { $set: { launchUrl: 'https://example.com/app2', sortOrder: 2 } });
+  if (p2) await Product.updateOne({ _id: p2._id }, { $set: { launchUrl: 'https://example.com/app2', sortOrder: 2, logo: '/images/brand/aio-generation.png' } });
   if (p3) await Product.updateOne({ _id: p3._id }, { $set: { launchUrl: 'https://example.com/app3', sortOrder: 3 } });
 
   // Demo portal customer with a password + verified purchases.
   const email = 'demo@portal.local';
   let customer = await Customer.findOne({ email }).select('+passwordHash');
-  if (!customer) customer = new Customer({ email, name: 'John Doe', status: 'active' });
+  if (!customer) customer = new Customer({ email, name: 'Deepanker', status: 'active' });
+  customer.name = 'Deepanker';
   await customer.setPassword('Password123');
   customer.emailVerified = true;
   customer.lastOpenedProductId = p1._id;
   customer.lastOpenedProductAt = new Date();
   await customer.save();
 
-  for (const p of [p1, p2, p3].filter(Boolean)) {
+  // Grant two apps so the dashboard shows the two-across layout with a trailing
+  // placeholder slot, matching the approved design.
+  for (const p of [p1, p2].filter(Boolean)) {
     await CustomerProduct.findOneAndUpdate(
       { customerId: customer._id, productId: p._id },
       {
