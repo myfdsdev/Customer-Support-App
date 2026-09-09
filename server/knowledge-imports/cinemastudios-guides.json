@@ -1,0 +1,146 @@
+{
+  "_comment": "Cinema Studio how-to and troubleshooting knowledge. Written from the live Base44 app (app id 6a8c1911430a37fcb07aa237): the BrandStoryProject / BrandStoryStep / GenerationQueue entity schemas, the Layout navigation, and the production + queue functions. Companion to cinemastudios.json, which covers plans, credits and account topics.",
+  "product": "cinemastudios",
+  "knowledge": [
+    {
+      "title": "How do I make a movie in Cinema Studio? Step by step",
+      "category": "Getting Started",
+      "summary": "Open Film Studio, give it your idea and settings, review the draft scenario and narration, then run production.",
+      "content": "Making a film happens in Film Studio, as a four-step builder. If you leave halfway, the project reopens at the step you left it on.\n\nStep 1 — Your idea. Give the project a title and your story idea, logline or premise. Pick a genre category (adventure, fantasy, sci-fi, mystery, crime thriller, horror, romance, drama, comedy, inspirational, historical, mythology, children's stories, moral lesson, family, animals and nature, social awareness, spiritual, dystopian, or brand/product). You can instead start from a Story Template, or paste your own finished script.\n\nStep 2 — Look and feel. Choose the visual style, who it is for, how long it should be, the shape of the video, the narration mode, the language, and the voice. These are covered in detail in 'What settings can I choose when creating a film?'.\n\nStep 3 — Cast and world. Add the characters that recur through the film and the world they live in — the environment, lighting and atmosphere. Locking a character's appearance here is what keeps the same face across every scene.\n\nStep 4 — Review, then produce. Before anything is generated you get a draft to read: the scenario, which is the shot-by-shot description, and the narration or dialogue script. Read them and change what you do not like — this is much cheaper than fixing it after generation. When you are happy, start production.\n\nProduction then runs through its stages on its own: blueprint, scenes, images, voiceovers, videos, music, and finally the timeline. When it finishes you have a rendered film, and the project also opens in the editor if you want to adjust the timeline.",
+      "keywords": ["how to make a movie", "make a film", "create video", "film studio", "steps", "workflow", "get started", "first film"]
+    },
+    {
+      "title": "What settings can I choose when creating a film?",
+      "category": "Features",
+      "summary": "Genre, visual style, audience, structure, ending, narration mode, language, length, shape, resolution and pacing.",
+      "content": "When you build a film you control:\n\nVisual style — cinematic realistic, photorealistic, 3D animation, 3D cartoon, 2D cartoon, anime, comic book, claymation, stop motion, watercolour, oil painting, storybook illustration, paper cut, sketch and ink, dark gothic, retro vintage, cyberpunk, fantasy art, documentary, or found footage. Any style works with any genre.\n\nAudience — kids, teens, adults or family.\n\nStory structure — linear, flashback, mystery reveal, twist ending or circular.\n\nEnding — happy, sad, open, surprising, victorious or moral.\n\nSetting era — modern, historical, fantasy, futuristic, or your own custom setting.\n\nPacing — calm, balanced, fast paced, or cinematic epic.\n\nLength — anywhere from 15 to 300 seconds. The default is 30 seconds.\n\nShape — shorts, landscape or square, with an aspect ratio of 16:9, 9:16 or 1:1.\n\nResolution — 480p, 720p or 1080p. The default is 720p.\n\nLanguage — narration and dialogue can be generated in the language you choose.\n\nSubtitles — off by default. No text is burned onto the video unless you turn them on.\n\nMusic — instrumental score only, or a full song with vocals. You can also give your own prompt for the music.\n\nVoice — pick the narration voice for the film.",
+      "keywords": ["settings", "options", "visual style", "aspect ratio", "resolution", "duration", "length", "language", "subtitles", "style"]
+    },
+    {
+      "title": "What do the narration modes mean?",
+      "category": "Features",
+      "summary": "They decide who speaks: a narrator, characters on camera, both, or no speech at all.",
+      "content": "Narration mode decides how your story is spoken:\n\n- Narrator — voice-over only. Nobody speaks on camera.\n- Narration and dialogue — a narrator, plus on-camera character lines where the story needs them.\n- Character dialogue — one character speaking on camera.\n- Conversational — two or more characters talking to each other.\n- First person — the story is told from a character's own point of view.\n- No dialogue — no speech at all, only music and sound effects.\n\nThe difference matters for how the film looks, not just how it sounds. Narration is recorded as a separate voice track laid over the shot, while dialogue is spoken on camera and lip-synced by the video model. If characters look like they are talking when you wanted a voice-over, you have picked a dialogue mode rather than narrator.",
+      "keywords": ["narration", "narrator", "dialogue", "voice over", "speaking", "lip sync", "conversation", "no dialogue"]
+    },
+    {
+      "title": "Can I use my own script instead of letting the AI write one?",
+      "category": "Features",
+      "summary": "Yes — paste a structured script and it is used exactly as written, with no AI rewriting.",
+      "content": "Yes. Instead of giving a story idea, you can paste your own script. When you do, the scenes you pasted are used as written — they are not rewritten or reinterpreted by the AI.\n\nEach scene you paste can carry its scene number, title, timing, the visual description used to generate the shot, the narration line, character dialogue, and sound notes.\n\nUse this when you already know exactly what you want, or when you are recreating something to a fixed running order. If you want the AI to develop the story for you instead, give it an idea or start from a Story Template.",
+      "keywords": ["own script", "custom script", "paste script", "my script", "no ai rewrite", "exact script"]
+    },
+    {
+      "title": "What happens during production, and how long does it take?",
+      "category": "Features",
+      "summary": "Production runs blueprint, scenes, images, voiceovers, videos, music, then timeline; video clips are the slow part.",
+      "content": "Once you start production, the project moves through these stages in order:\n\n1. Blueprint — the story skeleton.\n2. Scenes — the shot-by-shot breakdown.\n3. Images — the still frame for each shot.\n4. Voiceovers — the narration and dialogue audio.\n5. Videos — the moving clip for each shot.\n6. Music — the background score or song.\n7. Timeline — everything assembled into the finished film.\n\nYou can watch the project status move through setup, blueprint generated, scenes generated, producing, assets ready, timeline ready, rendering, and finally completed.\n\nOn timing: still images normally finish within a few minutes. Video clips are much slower — a single clip can take somewhere around ten to fifteen minutes, and a film has one clip per shot, so a longer film takes proportionally longer. A progress percentage is shown while it runs.\n\nYou do not have to sit and watch it. If you close the page mid-run, the project remembers which stage it reached and you can resume it.",
+      "keywords": ["production", "how long", "time", "slow", "stages", "progress", "generating", "waiting", "steps"]
+    },
+    {
+      "title": "My video generation failed — what should I do?",
+      "category": "Troubleshooting",
+      "summary": "Check credits and daily limits first, then retry the failed step; production resumes rather than starting over.",
+      "content": "A failed generation is usually one of a few things. Work through these in order:\n\n1. Check your credits. If your balance was too low when the step ran, generation stops. The app tells you how many credits the action needed. Top up or wait for your monthly refresh, then retry.\n\n2. Check your daily limit. On plans that have one, hitting the daily image or video cap stops generation until the next day.\n\n3. Retry the step. Production is tracked per step, so retrying continues from where it failed rather than regenerating the whole film. Individual scenes can be regenerated on their own too.\n\n4. Simplify the shot. A scene description that is very long, contradictory, or asks for content the model refuses will fail repeatedly. Shorten it and make the action concrete.\n\n5. If you are using your own API key, confirm it is still valid and has quota left. An expired or out-of-quota key fails every generation.\n\nIf the same step keeps failing after that, contact support with your project title and roughly when it failed, and we will look at the run.",
+      "keywords": ["failed", "generation failed", "error", "not working", "retry", "video failed", "stuck on failed"]
+    },
+    {
+      "title": "My generation is stuck or taking too long",
+      "category": "Troubleshooting",
+      "summary": "Video clips legitimately take many minutes; if it stops moving entirely, reload and resume the run.",
+      "content": "First, check whether it is actually stuck or just slow. Video generation is genuinely slow — a single clip can run for ten to fifteen minutes, and the app keeps polling for it over that window. Image steps are much faster, usually a few minutes at most.\n\nIf the progress has not moved at all for a long time:\n\n1. Reload the page. The progress display can lose its connection while the job itself keeps running on the server.\n2. Reopen the project. If a production run was interrupted, the project remembers the stage it reached and you can resume from there instead of starting over.\n3. Check your credit balance — a run that ran out mid-way stops rather than continuing.\n\nQueued work is processed in order, so during a busy period there can also be a wait before your task starts. A task that failed is retried automatically a limited number of times before it is marked failed.\n\nIf a project has sat with no movement for well over an hour, send support the project title and we will check the run.",
+      "keywords": ["stuck", "not moving", "taking too long", "slow", "frozen", "pending", "queue", "waiting forever"]
+    },
+    {
+      "title": "My character looks different in every scene",
+      "category": "Troubleshooting",
+      "summary": "Add the character to the cast with a locked appearance and a clean reference image, then regenerate the shots.",
+      "content": "Consistency comes from the cast. If a character is not in the project's cast, every shot invents a new version of them.\n\nTo fix it:\n\n1. Add the character to the film's cast, with their appearance, wardrobe and physicality described.\n2. Keep their appearance locked. That is what tells every shot to reuse the same look.\n3. Give them a clean reference image — a single clear portrait. This is the image each shot hands to the model.\n4. Regenerate the shots where the face is wrong. Existing clips are not retroactively updated.\n\nOne thing worth knowing: the multi-panel character sheet is a review asset for you to look at, not the image sent into a shot. Image models tend to copy a grid layout literally if you feed one in, which produces strange results. The single clean portrait is what gets used.\n\nIf a character drifts after several regenerations, the original identity photo is kept precisely so a fresh regeneration reads the real face again instead of copying a copy — regenerate from the character rather than from the last output.",
+      "keywords": ["character changes", "face different", "not consistent", "same character", "inconsistent", "appearance", "cast", "locked"]
+    },
+    {
+      "title": "The film finished but a scene has no video or the clip is missing",
+      "category": "Troubleshooting",
+      "summary": "Regenerate just that scene; a clip can complete without a usable file coming back.",
+      "content": "Occasionally a scene completes without a usable video file coming back from the engine. The shot then shows as blank or falls back to a still.\n\nWhat to do:\n\n1. Regenerate that single scene rather than the whole film — it is much faster and much cheaper in credits.\n2. If it fails again, shorten or simplify that scene's action description and try once more.\n3. Check whether the scene was meant to be a still. Not every shot gets a moving clip: the motion budget setting controls what share of scenes become real video, and the rest deliberately stay as stills. If more shots are still images than you expected, raise the motion budget and regenerate.\n\nIf one specific scene fails repeatedly while the rest of the film is fine, send support the project title and the scene number.",
+      "keywords": ["no video", "missing clip", "blank scene", "black screen", "still image", "not moving", "motion budget"]
+    },
+    {
+      "title": "What are motion budget and skip storyboard?",
+      "category": "Features",
+      "summary": "Motion budget sets how many scenes become real video; skip storyboard generates video without making stills first.",
+      "content": "Motion budget is the percentage of your scenes that get a real generated video clip. The rest stay as still frames. At 100 percent every shot moves. Lowering it produces a film that mixes motion with stills, which generates faster and costs fewer credits.\n\nSkip storyboard changes the route entirely: instead of generating a still image for each shot and then animating it, each scene's video is generated straight from your cast reference images. It removes a whole stage, so it is faster, but you lose the chance to check the frame before it moves.\n\nWith skip storyboard on, there is also a shot batching option. Consecutive shots in the same location can be compiled into one generation as a numbered shot list, which is more efficient. You can leave it automatic, force it always, or turn it off.\n\nIf you want to review each frame before spending credits on motion, leave skip storyboard off.",
+      "keywords": ["motion budget", "skip storyboard", "stills", "faster generation", "batch shots", "cheaper"]
+    },
+    {
+      "title": "How do I make a series with multiple episodes?",
+      "category": "Features",
+      "summary": "Series Maker groups episodes under one series; each episode is built like a film and tracks its own status.",
+      "content": "Series Maker is for multi-episode content rather than a single film. You create the series, then build its episodes.\n\nEach episode is produced the same way a standalone film is — idea, settings, cast and world, review, produce — but it is numbered and belongs to the series, so the cast and world carry across episodes and keep the look consistent.\n\nEach episode tracks its own progress: planned, written, producing, rendered, or failed. So you can have episode one finished while episode three is still being written.\n\nOnce episodes are rendered, Cinema Box Setting is where you configure how the series is presented, and Cinema Box Player is where it is watched.\n\nSeries Maker, Cinema Box Setting and Cinema Box Player are not part of the Cinema studio FE plan — they come with the higher plans.",
+      "keywords": ["series", "episodes", "series maker", "short drama", "multiple episodes", "season", "cinema box"]
+    },
+    {
+      "title": "How do I add background music and choose a voice?",
+      "category": "Features",
+      "summary": "Music is generated as part of production — instrumental or a full song — and the narration voice is set on the project.",
+      "content": "Music is generated as one of the production stages, so you do not have to source it separately. You choose:\n\n- Instrumental — score only, no vocals. This is the usual choice when there is narration, so the music does not fight the voice.\n- Song — a full song with vocals and lyrics.\n\nYou can also write your own music prompt to describe the mood, instruments or genre you want.\n\nThe music has its own status while it generates, so if the film is otherwise done and the music is still working, that is normal — it finishes on its own.\n\nThe narration voice is set on the project alongside the other film settings, and applies to the whole film.\n\nIf the music generated does not suit the film, change the music prompt or the mode and regenerate that step rather than the whole project.",
+      "keywords": ["music", "background music", "song", "instrumental", "voice", "voiceover", "audio", "soundtrack"]
+    },
+    {
+      "title": "My subtitles are not showing on the video",
+      "category": "Troubleshooting",
+      "summary": "Subtitles are off by default; turn them on in the project settings and regenerate.",
+      "content": "Subtitles are switched off by default. No text is burned onto the video unless you turn them on, so a finished film with no captions is the expected behaviour rather than a fault.\n\nTo get them, enable subtitles in the project's settings and produce the film. If the film is already rendered, you will need to regenerate for the text layers to be added.\n\nIf subtitles are on and still not appearing, check that your narration mode actually produces speech — with no dialogue selected there are no spoken lines to caption.",
+      "keywords": ["subtitles", "captions", "text not showing", "no subtitles", "burn in", "srt"]
+    },
+    {
+      "title": "I cannot find my project or video",
+      "category": "Troubleshooting",
+      "summary": "Work belongs to the account that made it; check My Projects, My Videos, and that you are signed in with the right email.",
+      "content": "Your work lives in two places: My Projects holds story projects, and My Videos holds generated videos.\n\nIf something is missing:\n\n1. Check you are signed in with the same email address you created it on. Projects belong to the account that made them, so a second account created on a different email will look empty.\n2. Check the other list. An unfinished story is in My Projects, not My Videos — nothing appears in My Videos until a video has actually been generated.\n3. If you work in a team workspace, make sure you are in the right workspace. Projects created inside a workspace are visible to that workspace, and switching workspaces changes what you see.\n\nIf you are certain you are in the right account and workspace and the project is still gone, contact support with the project title and roughly when you created it.",
+      "keywords": ["project missing", "cannot find", "lost project", "video gone", "disappeared", "my projects", "my videos"]
+    },
+    {
+      "title": "I am getting an API key error",
+      "category": "API",
+      "summary": "On plans where you supply your own key, an invalid, missing or out-of-quota key fails every generation.",
+      "content": "This applies on the plans that let you connect your own API keys. If the key is missing, invalid, expired, or has no quota left, every generation fails — usually immediately rather than after a wait.\n\nWhat to check:\n\n1. That the key is actually saved in your settings and has no stray spaces at the ends.\n2. That the key is still active in your provider account and has not been rotated or revoked.\n3. That the provider account still has credit or quota remaining.\n\nUsing your own key is optional on the plans that support it. If you would rather not manage one, remove it and generations run on the app's included capacity against your Cinema Studio credits instead.\n\nThe Cinema studio FE plan does not use custom API keys at all, so this error is not expected there — if you see it on that plan, contact support.",
+      "keywords": ["api key", "key error", "invalid key", "not configured", "quota", "provider", "byok"]
+    },
+    {
+      "title": "How do I fix a story I do not like before spending credits?",
+      "category": "Getting Started",
+      "summary": "Edit the draft scenario and narration at the review step — changing it there costs nothing.",
+      "content": "Before any images or video are generated, you get a draft to review: the scenario, which is the shot-by-shot visual description, and the narration or dialogue script.\n\nThis is the cheapest place to fix anything. Changing a scene description here costs nothing; changing it after the shot has been generated means paying credits to regenerate.\n\nSo at the review step:\n\n- Read the scenario and rewrite any shot that is not what you pictured.\n- Read the narration and fix wording, names and pronunciation.\n- Check the story actually resolves the way you want — the ending type you chose steers this.\n\nIf the whole direction is wrong, it is usually faster to change the story settings — genre, structure, ending, pacing — and regenerate the draft than to rewrite every scene by hand.",
+      "keywords": ["edit story", "change scenes", "review", "draft", "before generating", "fix script", "regenerate blueprint"]
+    },
+    {
+      "title": "A workspace invitation link is not working",
+      "category": "Account",
+      "summary": "Invitations expire, are tied to one email address, and cannot be reused once accepted.",
+      "content": "Team workspace invitations fail for a few specific reasons, and the message tells you which:\n\n- The invitation has expired. Ask the workspace owner to send a new one.\n- The invitation is not for your email address. Invitations are tied to the exact address they were sent to — sign in with that address, or ask the owner to reissue it to the address you actually use.\n- You are already a member of the workspace. In that case no action is needed; just open the workspace.\n- The link is invalid. Copy the full URL from the email rather than retyping part of it, since a truncated token will not match.\n\nIf a fresh invitation to the correct address still fails, contact support with the workspace name and the email it was sent to.",
+      "keywords": ["invitation", "invite link", "expired", "workspace", "team invite", "not working", "join"]
+    },
+    {
+      "title": "My password reset link says it has expired",
+      "category": "Login",
+      "summary": "Reset links are single-use and time limited; request a fresh one from the login screen.",
+      "content": "Password reset links are time limited and can only be used once. If yours has expired, or you already opened it, simply request a new one from 'Forgot password?' on the login screen and use the newest email.\n\nA few things that commonly cause this:\n\n- Using an older reset email when several were requested. Only the most recent link works.\n- Opening the link long after it arrived.\n- A mail client that pre-opens links to scan them, which consumes the single use. If you suspect this, request a new link and paste it into the browser manually instead of clicking.\n\nYour new password must be at least 8 characters.\n\nIf you originally signed up with Continue with Google, there is no password on the account at all — sign in with Google rather than resetting.",
+      "keywords": ["reset expired", "password link", "token expired", "cannot reset", "forgot password", "new password"]
+    },
+    {
+      "title": "Which format and aspect ratio should I choose?",
+      "category": "FAQs",
+      "summary": "Shorts and 9:16 for phone-first platforms, landscape and 16:9 for YouTube, square and 1:1 for feeds.",
+      "content": "Pick the shape to match where the video will be watched:\n\n- Shorts, 9:16 — vertical, for TikTok, Instagram Reels and YouTube Shorts.\n- Landscape, 16:9 — the standard widescreen shape, for YouTube and websites.\n- Square, 1:1 — for feed posts where a square crops well.\n\nChoose this before you produce. The shape affects how each shot is framed, so switching afterwards means regenerating rather than simply cropping.\n\nOn resolution, 720p is the default and is a good balance. 1080p is sharper but heavier; 480p is fastest and lightest. On length, the default is 30 seconds and you can go from 15 up to 300 seconds — remember that a longer film means more shots, so more generation time and more credits.",
+      "keywords": ["aspect ratio", "format", "vertical", "landscape", "square", "9:16", "16:9", "resolution", "youtube", "reels", "tiktok"]
+    },
+    {
+      "title": "How do I reduce how many credits a film uses?",
+      "category": "Credits",
+      "summary": "Shorter films, a lower motion budget, fewer regenerations and lower resolution all cost less.",
+      "content": "Credits are consumed per generation, so the cost of a film comes mainly from how many shots it has and how many of them move.\n\nWhat actually reduces it:\n\n- Make the film shorter. Fewer seconds means fewer shots.\n- Lower the motion budget. Shots that stay as stills cost far less than generated video clips.\n- Get the draft right before producing. Editing the scenario and narration at the review step is free; regenerating a shot afterwards is not.\n- Regenerate single scenes rather than the whole film when something is wrong.\n- Use a lower resolution while you are still experimenting, and save 1080p for the final version.\n\nIf you are on a plan with a daily cap as well, spreading a long project over two days avoids hitting it.",
+      "keywords": ["save credits", "reduce cost", "cheaper", "credits used", "expensive", "cost per video", "optimise"]
+    }
+  ]
+}

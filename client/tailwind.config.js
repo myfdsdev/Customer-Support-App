@@ -45,8 +45,9 @@ export default {
       },
       fontFamily: {
         sans: ['Alata', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
-        // The "Fly Support" customer portal is set in Unbounded, scoped to the
-        // navbar + dashboard so the rest of the app keeps Alata.
+        // The "Fly Support" customer portal is set in Unbounded, applied once on
+        // the portal shell (layouts/PortalLayout) so every page under /portal
+        // inherits it. The staff admin and the public support widget keep Alata.
         unbounded: ['Unbounded', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       boxShadow: {

@@ -162,6 +162,9 @@ const productSchema = new mongoose.Schema(
     websiteUrl: { type: String, default: '' },
     loginUrl: { type: String, default: '' },
     docsUrl: { type: String, default: '' },
+    /** Shown in the product page header strip. Free text, blank simply hides the cell. */
+    category: { type: String, default: '', trim: true, maxlength: 60 },
+    platform: { type: String, default: '', trim: true, maxlength: 60 },
     supportEmail: { type: String, default: '' },
     brandColor: { type: String, default: '#4f46e5' },
     aiWelcomeMessage: {

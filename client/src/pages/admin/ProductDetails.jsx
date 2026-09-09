@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import PageHeader from '../../components/admin/PageHeader';
 import FormSection, { CardHeader } from '../../components/admin/FormSection';
 import SupportPageEditor from '../../components/admin/SupportPageEditor';
+import ProductPageEditor from '../../components/admin/ProductPageEditor';
 import { Button, Input, Textarea, Spinner, Badge, Modal, Toggle, StatCard, Alert, ProductLogo } from '../../components/ui';
 
 export default function ProductDetails() {
@@ -38,6 +39,7 @@ export default function ProductDetails() {
       name: data.name, slug: data.slug, tagline: data.tagline || '', description: data.description || '',
       websiteUrl: data.websiteUrl || '', loginUrl: data.loginUrl || '', docsUrl: data.docsUrl || '',
       supportEmail: data.supportEmail || '', brandColor: data.brandColor || '#1E293B',
+      category: data.category || '', platform: data.platform || '',
       aiWelcomeMessage: data.aiWelcomeMessage || '', aiPersona: data.aiPersona || '', logo: data.logo || '',
       active: data.active,
       // Resolved rather than raw: the editor always has a concrete value to
@@ -62,6 +64,8 @@ export default function ProductDetails() {
           accessPlan: m.accessPlan || '',
           active: m.active !== false,
         })),
+      // The editor owns every portalPage field, so the whole sub-document is
+      // loaded. Sending back only the scalars would wipe the lists on save.
       portalPage: {
         heroTitle: data.portalPage?.heroTitle || '',
         heroSubtitle: data.portalPage?.heroSubtitle || '',
@@ -70,6 +74,13 @@ export default function ProductDetails() {
         overviewContent: data.portalPage?.overviewContent || '',
         gettingStartedContent: data.portalPage?.gettingStartedContent || '',
         howItWorksContent: data.portalPage?.howItWorksContent || '',
+        featureItems: data.portalPage?.featureItems || [],
+        faqItems: data.portalPage?.faqItems || [],
+        resourceLinks: data.portalPage?.resourceLinks || [],
+        visibleSections: data.portalPage?.visibleSections || [],
+        sectionOrder: data.portalPage?.sectionOrder || [],
+        showTutorials: data.portalPage?.showTutorials !== false,
+        showRelated: data.portalPage?.showRelated !== false,
         pageStatus: data.portalPage?.pageStatus || 'published',
       },
     });
@@ -127,8 +138,6 @@ export default function ProductDetails() {
     }
   }
 
-  const changePortal = (key, value) =>
-    setForm((f) => ({ ...f, portalPage: { ...f.portalPage, [key]: value } }));
 
   /* JVZoo mapping row helpers. */
   const addMapping = () =>
@@ -391,22 +400,29 @@ export default function ProductDetails() {
                 </div>
               </FormSection>
 
-              <FormSection title="Product page" description="The internal blog-style page owners see. Content is sanitised on save.">
-                <div className="space-y-3">
-                  <Input label="Hero title" value={form.portalPage.heroTitle} onChange={(e) => changePortal('heroTitle', e.target.value)} />
-                  <Input label="Hero subtitle" value={form.portalPage.heroSubtitle} onChange={(e) => changePortal('heroSubtitle', e.target.value)} />
-                  <Input label="Hero image URL" value={form.portalPage.heroImage} onChange={(e) => changePortal('heroImage', e.target.value)} />
-                  <Input label="Hero video URL" value={form.portalPage.heroVideoUrl} onChange={(e) => changePortal('heroVideoUrl', e.target.value)} />
-                  <Textarea label="Overview" rows={3} value={form.portalPage.overviewContent} onChange={(e) => changePortal('overviewContent', e.target.value)} />
-                  <Textarea label="Getting started" rows={3} value={form.portalPage.gettingStartedContent} onChange={(e) => changePortal('gettingStartedContent', e.target.value)} />
-                  <Textarea label="How it works" rows={3} value={form.portalPage.howItWorksContent} onChange={(e) => changePortal('howItWorksContent', e.target.value)} />
-                  <div>
-                    <span className="label">Page status</span>
-                    <select className="input" value={form.portalPage.pageStatus} onChange={(e) => changePortal('pageStatus', e.target.value)}>
-                      <option value="published">Published</option>
-                      <option value="draft">Draft (owners preview only)</option>
-                    </select>
+              <FormSection
+                title="Product page"
+                description="The blog-style page owners land on. Everything here is sanitised on save — no raw HTML is stored."
+              >
+                <div className="space-y-6">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Input label="Category" name="category" value={form.category} onChange={change}
+                      hint="Shown in the page header, e.g. AI Film Making" />
+                    <Input label="Platform" name="platform" value={form.platform} onChange={change}
+                      hint="e.g. Web App" />
                   </div>
+                  <ProductPageEditor
+                    value={form.portalPage}
+                    onChange={(next) => setForm((f) => ({ ...f, portalPage: next }))}
+                  />
+                  <a
+                    href={`/portal/products/${form.slug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:underline"
+                  >
+                    <ExternalLink className="h-4 w-4" /> Preview the customer page
+                  </a>
                 </div>
               </FormSection>
 

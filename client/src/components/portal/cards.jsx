@@ -68,7 +68,14 @@ export function ContinueProductCard({ product, onLaunch, launching }) {
 }
 
 /** Product tile in the "Your Apps" grid. */
-export function PurchasedProductCard({ product, onLaunch, launching }) {
+/**
+ * A product in the "My Products" grid.
+ *
+ * Like the dashboard tile, this leads to the product page rather than launching
+ * the app directly — the page carries the videos, features and FAQs, and the
+ * Open App button lives there.
+ */
+export function PurchasedProductCard({ product }) {
   const owned = !product.discovery;
   return (
     <div className="card flex flex-col overflow-hidden transition-shadow hover:shadow-pop">
@@ -87,20 +94,9 @@ export function PurchasedProductCard({ product, onLaunch, launching }) {
         ) : (
           <Badge tone="indigo">Available</Badge>
         )}
-        {owned && product.canLaunch ? (
-          <button
-            type="button"
-            onClick={() => onLaunch(product)}
-            className="btn-secondary !border-brand-300 !text-brand-700 hover:!bg-brand-50"
-            disabled={launching}
-          >
-            Open
-          </button>
-        ) : (
-          <Link to={product.productUrl} className="btn-secondary !border-brand-300 !text-brand-700 hover:!bg-brand-50">
-            {owned ? 'View' : 'Learn more'}
-          </Link>
-        )}
+        <Link to={product.productUrl} className="btn-secondary !border-brand-300 !text-brand-700 hover:!bg-brand-50">
+          {owned ? 'View' : 'Learn more'}
+        </Link>
       </div>
     </div>
   );

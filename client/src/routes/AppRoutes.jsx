@@ -26,6 +26,10 @@ import PortalProductDetail from '../pages/portal/ProductDetail';
 import PortalSupport from '../pages/portal/Support';
 import PortalChat from '../pages/portal/PortalChat';
 import PortalConversations from '../pages/portal/Conversations';
+import PortalTickets, {
+  TicketDetail as PortalTicketDetail,
+  NewTicket as PortalNewTicket,
+} from '../pages/portal/Tickets';
 import PortalProfile from '../pages/portal/Profile';
 
 import Login from '../pages/admin/Login';
@@ -168,6 +172,10 @@ export default function AppRoutes() {
         <Route path="support/:productSlug/ai" element={<PortalChat mode="ai" />} />
         <Route path="support/:productSlug/team" element={<PortalChat mode="human" />} />
         <Route path="conversations" element={<PortalConversations />} />
+        <Route path="tickets" element={<PortalTickets />} />
+        {/* Static segment is ranked above ":id" by the router, so /new is safe. */}
+        <Route path="tickets/new" element={<PortalNewTicket />} />
+        <Route path="tickets/:id" element={<PortalTicketDetail />} />
         <Route path="profile" element={<PortalProfile />} />
       </Route>
 

@@ -19,8 +19,15 @@ function greeting() {
  * "Apps You'll Love" tiles
  * ---------------------------------------------------------------------- */
 
-/** A single owned-app tile: logo, a "Purchased" badge, and an Open action. */
-function AppTile({ product, onLaunch, launching }) {
+/**
+ * A single owned-app tile: logo, a "Purchased" badge, and a way in.
+ *
+ * The tile deliberately leads to the product page rather than launching the
+ * app. The page is where everything about the product lives — what it does,
+ * its videos, its FAQs, and the Open App button itself — so sending someone
+ * straight out to the app skips past all of it and gives them no way back in.
+ */
+function AppTile({ product }) {
   return (
     <div className="flex w-[330px] shrink-0 flex-col overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-card sm:w-[400px]">
       <Link to={product.productUrl} className="grid flex-1 place-items-center px-6 py-8">
@@ -41,23 +48,12 @@ function AppTile({ product, onLaunch, launching }) {
           </span>
           Purchased
         </span>
-        {product.canLaunch ? (
-          <button
-            type="button"
-            onClick={() => onLaunch(product)}
-            disabled={launching}
-            className="rounded-lg bg-[#0f1d01] px-6 py-2 text-base font-semibold text-white transition-colors hover:bg-[#1f3a0c] disabled:opacity-60"
-          >
-            {launching ? 'Opening…' : 'Open'}
-          </button>
-        ) : (
-          <Link
-            to={product.productUrl}
-            className="rounded-lg bg-[#0f1d01] px-6 py-2 text-base font-semibold text-white transition-colors hover:bg-[#1f3a0c]"
-          >
-            View
-          </Link>
-        )}
+        <Link
+          to={product.productUrl}
+          className="rounded-lg bg-[#0f1d01] px-6 py-2 text-base font-semibold text-white transition-colors hover:bg-[#1f3a0c]"
+        >
+          View
+        </Link>
       </div>
     </div>
   );
@@ -71,7 +67,7 @@ function EmptyTile() {
 }
 
 /** Horizontal, arrow-controlled carousel of owned apps. */
-function AppsCarousel({ products, onLaunch, launchingId }) {
+function AppsCarousel({ products }) {
   const scroller = useRef(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
@@ -119,7 +115,7 @@ function AppsCarousel({ products, onLaunch, launchingId }) {
         className="flex flex-1 gap-5 overflow-x-auto scroll-thin scroll-smooth pb-1"
       >
         {products.map((p) => (
-          <AppTile key={p._id} product={p} onLaunch={onLaunch} launching={launchingId === p._id} />
+          <AppTile key={p._id} product={p} />
         ))}
         {Array.from({ length: pads }).map((_, i) => (
           <EmptyTile key={`pad-${i}`} />
@@ -199,7 +195,7 @@ export default function Dashboard() {
   const firstName = (customer?.firstName || customer?.name || 'there').toUpperCase();
 
   return (
-    <div className="space-y-10 font-unbounded">
+    <div className="space-y-10">
       {/* Greeting */}
       <div>
         <h1 className="text-[17px] font-normal text-[#111111]">
@@ -250,7 +246,7 @@ export default function Dashboard() {
         </div>
 
         {hasProducts ? (
-          <AppsCarousel products={purchasedProducts} onLaunch={launch} launchingId={launchingId} />
+          <AppsCarousel products={purchasedProducts} />
         ) : (
           <div className="rounded-2xl border border-ink-200 bg-white shadow-card">
             <EmptyState

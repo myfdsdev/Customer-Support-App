@@ -74,7 +74,12 @@ export default function PortalChat({ mode = 'ai' }) {
     : 'AI Assistant';
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col">
+    // Height must match what the portal shell actually leaves: 100dvh minus the
+    // navbar (80px) + its accent strip (6px) + main's py-8 (64px) = 150px. The
+    // old value was 8rem, so the box overflowed the viewport and pushed the
+    // composer below the fold. `dvh` keeps that honest on mobile, where the
+    // browser chrome collapses and `vh` lies.
+    <div className="mx-auto flex h-[calc(100dvh-150px)] max-w-3xl flex-col">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 border-b border-ink-200 pb-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -111,7 +116,10 @@ export default function PortalChat({ mode = 'ai' }) {
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 space-y-1 overflow-y-auto scroll-thin py-4">
+      {/* `min-h-0` is what lets this shrink inside the flex column. Without it a
+          scrolling flex child refuses to go below its content height, growing
+          the container and shoving the composer off-screen. */}
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto scroll-thin py-4">
         {messages.length === 0 && !aiThinking ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <span className={cn('mb-3 grid h-14 w-14 place-items-center rounded-2xl', isTeam ? 'bg-brand-50 text-brand-700' : 'bg-ink-100 text-ink-700')}>
@@ -141,29 +149,35 @@ export default function PortalChat({ mode = 'ai' }) {
             )}
           </div>
         ) : (
-          messages.map((m) => (
-            <ChatMessage
-              key={m.clientMessageId || m._id}
-              message={m}
-              product={product}
-              onRetry={() => chat.retryMessage(m.clientMessageId)}
-              assistantName={isTeam ? 'Support Team' : 'AI Assistant'}
-            />
-          ))
-        )}
+          // A short conversation belongs just above the composer, the way every
+          // chat app behaves — not stranded at the top of a tall column with a
+          // wall of empty space beneath it. Once the thread outgrows the
+          // viewport this becomes a no-op and normal scrolling takes over.
+          <div className="flex min-h-full flex-col justify-end space-y-1">
+            {messages.map((m) => (
+              <ChatMessage
+                key={m.clientMessageId || m._id}
+                message={m}
+                product={product}
+                onRetry={() => chat.retryMessage(m.clientMessageId)}
+                assistantName={isTeam ? 'Support Team' : 'AI Assistant'}
+              />
+            ))}
 
-        {aiThinking && (
-          <div className="flex items-center gap-2 px-2 py-2 text-sm text-ink-400">
-            <Bot className="h-4 w-4" />
-            <span className="inline-flex gap-1">
-              <span className="h-2 w-2 animate-pulse-dot rounded-full bg-ink-300" />
-              <span className="h-2 w-2 animate-pulse-dot rounded-full bg-ink-300" style={{ animationDelay: '0.2s' }} />
-              <span className="h-2 w-2 animate-pulse-dot rounded-full bg-ink-300" style={{ animationDelay: '0.4s' }} />
-            </span>
+            {aiThinking && (
+              <div className="flex items-center gap-2 px-2 py-2 text-sm text-ink-400">
+                <Bot className="h-4 w-4" />
+                <span className="inline-flex gap-1">
+                  <span className="h-2 w-2 animate-pulse-dot rounded-full bg-ink-300" />
+                  <span className="h-2 w-2 animate-pulse-dot rounded-full bg-ink-300" style={{ animationDelay: '0.2s' }} />
+                  <span className="h-2 w-2 animate-pulse-dot rounded-full bg-ink-300" style={{ animationDelay: '0.4s' }} />
+                </span>
+              </div>
+            )}
+            {agentTyping && (
+              <div className="px-2 py-1 text-xs text-ink-400">Support is typing…</div>
+            )}
           </div>
-        )}
-        {agentTyping && (
-          <div className="px-2 py-1 text-xs text-ink-400">Support is typing…</div>
         )}
       </div>
 

@@ -5,7 +5,7 @@ const { body } = require('express-validator');
 const authCtrl = require('../controllers/portalAuthController');
 const portal = require('../controllers/portalController');
 const { validate } = require('../middleware/validate');
-const { portalAuthLimiter } = require('../middleware/rateLimit');
+const { portalAuthLimiter, portalTicketLimiter } = require('../middleware/rateLimit');
 const {
   authenticateCustomer,
   requireCustomerProductAccess,
@@ -78,6 +78,21 @@ router.get('/support/products', portal.supportProducts);
 router.post('/support/:productSlug/start', requireCustomerProductAccess(), portal.startSupport);
 
 router.get('/conversations', portal.listConversations);
+
+// Reading is scoped to req.customer in both handlers, so there is no id a
+// customer could pass to reach somebody else's ticket.
+router.get('/tickets', portal.listTickets);
+router.get('/tickets/:id', portal.getTicket);
+
+// Raising one is product-scoped on purpose: the entitlement guard runs first,
+// so the product can never be swapped for one the customer does not own. The
+// limiter is keyed per customer and sits behind authenticateCustomer above.
+router.post(
+  '/products/:productSlug/tickets',
+  portalTicketLimiter,
+  requireCustomerProductAccess(),
+  portal.createTicket
+);
 
 router.get('/notifications', portal.listNotifications);
 router.patch('/notifications/read-all', portal.markAllNotificationsRead);

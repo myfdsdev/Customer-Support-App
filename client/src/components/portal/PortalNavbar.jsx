@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Package, LifeBuoy, ChevronDown, LogOut, User as UserIcon } from 'lucide-react';
+import { LayoutGrid, Package, LifeBuoy, Ticket, ChevronDown, LogOut, User as UserIcon } from 'lucide-react';
 import cn from '../../utils/cn';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { Avatar } from '../ui';
@@ -15,6 +15,7 @@ const LINKS = [
   { to: '/portal/dashboard', label: 'Dashboard', icon: LayoutGrid },
   { to: '/portal/products', label: 'My Products', icon: Package },
   { to: '/portal/support', label: 'Support', icon: LifeBuoy },
+  { to: '/portal/tickets', label: 'Tickets', icon: Ticket },
 ];
 
 export default function PortalNavbar() {
@@ -37,7 +38,7 @@ export default function PortalNavbar() {
   };
 
   return (
-    <header className="sticky top-0 z-20 border-b border-ink-200/70 bg-white/95 font-unbounded backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-ink-200/70 bg-white/95 backdrop-blur">
       {/* Accent strip across the very top (full-bleed) — radial white→lime */}
       <div className="navbar-accent-bar h-1.5 w-full" />
       <div className="mx-auto flex h-20 max-w-[1600px] items-center gap-6 px-4 sm:px-6 lg:gap-10">

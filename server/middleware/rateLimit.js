@@ -63,6 +63,21 @@ const webhookLimiter = rateLimit({
   message: message('Too many webhook requests.'),
 });
 
+/**
+ * Ticket creation from the portal. Cheap to submit, expensive to triage, so it
+ * is bounded per CUSTOMER rather than per IP — a household or office behind one
+ * address must not throttle each other, and a single abusive account cannot
+ * flood the queue by rotating addresses. Safe to key this way because the
+ * limiter is only ever mounted behind `authenticateCustomer`.
+ */
+const portalTicketLimiter = rateLimit({
+  ...base,
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  keyGenerator: (req) => String(req.customer?._id || 'anonymous'),
+  message: message('You have opened several tickets recently. Please wait a while before opening another.'),
+});
+
 /** Brute-force protection for the portal login/registration endpoints. */
 const portalAuthLimiter = rateLimit({
   ...base,
@@ -80,4 +95,5 @@ module.exports = {
   uploadLimiter,
   webhookLimiter,
   portalAuthLimiter,
+  portalTicketLimiter,
 };

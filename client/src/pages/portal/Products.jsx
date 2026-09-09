@@ -4,13 +4,11 @@ import { Package, RefreshCw } from 'lucide-react';
 import { Spinner, ErrorState, EmptyState, Button } from '../../components/ui';
 import { portalService } from '../../services/portalApi';
 import { PurchasedProductCard } from '../../components/portal/cards';
-import { useLaunch } from '../../components/portal/useLaunch';
 
 export default function Products() {
   const [products, setProducts] = useState(null);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const { launch, launchingId } = useLaunch();
 
   const load = async () => {
     setError('');
@@ -59,7 +57,7 @@ export default function Products() {
       {products.length ? (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((p) => (
-            <PurchasedProductCard key={p._id} product={p} onLaunch={launch} launching={launchingId === p._id} />
+            <PurchasedProductCard key={p._id} product={p} />
           ))}
         </div>
       ) : (

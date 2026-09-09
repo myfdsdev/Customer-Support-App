@@ -337,14 +337,22 @@ const DASHBOARD_VISIBILITY = {
 const DASHBOARD_VISIBILITY_LIST = Object.values(DASHBOARD_VISIBILITY);
 
 /** Sections of the customer-facing product page, in their default order. */
+/**
+ * Default order of a product page's sections.
+ *
+ * Videos sit high, straight after the overview: a customer who has just been
+ * told what the product is will watch before they read, and burying the videos
+ * under every text section wastes the one asset that answers "show me".
+ * An admin can still reorder per product.
+ */
 const PRODUCT_PAGE_SECTIONS = [
   'hero',
   'overview',
-  'getting_started',
+  'tutorials',
   'features',
+  'getting_started',
   'how_it_works',
   'updates',
-  'tutorials',
   'resources',
   'faq',
   'support',
@@ -369,6 +377,7 @@ const NOTIFICATION_TYPES = {
   SUPPORT_REPLY: 'support_reply',
   CONVERSATION_ASSIGNED: 'conversation_assigned',
   CONVERSATION_RESOLVED: 'conversation_resolved',
+  TICKET_UPDATE: 'ticket_update',
   ACCESS_GRANTED: 'access_granted',
   ACCESS_REVOKED: 'access_revoked',
 };

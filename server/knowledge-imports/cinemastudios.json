@@ -1,0 +1,153 @@
+{
+  "_comment": "Cinema Studio product knowledge, written from the live Base44 app (app id 6a8c1911430a37fcb07aa237): its Plan records, Layout navigation and the handleCreditAndDailyLimits / resetMonthlyCredits functions. Re-run 'npm run import:kb -- knowledge-imports/cinemastudios.json' after editing; items are matched by title and updated in place.",
+  "product": "cinemastudios",
+  "knowledge": [
+    {
+      "title": "What is Cinema Studio?",
+      "category": "Getting Started",
+      "summary": "Cinema Studio is an AI platform for turning a story idea into finished cinematic video.",
+      "content": "Cinema Studio is an AI film and video platform. You start from an idea or a template and the app helps you build the story, design the characters and worlds it happens in, and generate the finished video.\n\nThe main tools in the left menu are:\n\n- Film Studio — build a complete cinematic brand story or film from a prompt.\n- Series Maker — create multi-episode short drama series.\n- Story Templates — start from a ready-made story structure instead of a blank page.\n- Characters — design and reuse consistent characters across your projects.\n- Worlds & Locations — design the settings your scenes take place in.\n- My Projects — every story project you have started.\n- My Videos — every video you have generated.\n- Cinema Box Player and Cinema Box Setting — publish and watch your finished series.\n- Loops Studio — create looping video content.\n- Training, Community and Bonuses — tutorials, other creators' work, and extras.\n\nWhich of these you can open depends on your plan. Anything not included in your plan stays locked until you upgrade.",
+      "keywords": ["cinema studio", "what is", "about", "overview", "features", "tools", "platform"]
+    },
+    {
+      "title": "How do I log in to Cinema Studio?",
+      "category": "Login",
+      "summary": "Sign in at app.thecinemastudio.com with your email and password, or with Continue with Google.",
+      "content": "Go to https://app.thecinemastudio.com and sign in. There are two ways:\n\n1. Email and password — enter the email address your account was created with and your password.\n2. Continue with Google — use this if you set your account up with Google.\n\nIf you forgot your password, click 'Forgot password?' on the login screen and we email you a reset link.\n\nImportant: use the SAME email address you bought with. If you sign up with a different address, your purchase will not be attached to that account and the app will look empty.",
+      "keywords": ["login", "log in", "sign in", "password", "google", "access account"]
+    },
+    {
+      "title": "I bought Cinema Studio — how do I get access?",
+      "category": "Getting Started",
+      "summary": "You receive an invitation email at your purchase address; register with that same email to activate access.",
+      "content": "After your purchase completes, we send an invitation email to the exact address you used to buy. Open it and create your account with that same email address — your plan is then activated automatically and your credits appear on your dashboard.\n\nIf you do not see the email:\n\n- Check your spam, promotions and junk folders.\n- Confirm which email address you actually paid with; the invitation only goes to that one.\n- Wait a few minutes — it can take a little time to arrive after a purchase.\n\nIf it still has not arrived, contact support with your purchase receipt number and the email you paid with, and we will resend the invitation.",
+      "keywords": ["purchase", "bought", "access", "activate", "invitation", "welcome email", "jvzoo", "no access"]
+    },
+    {
+      "title": "I registered with a different email than the one I purchased with",
+      "category": "Account",
+      "summary": "Access is attached to the purchase email; contact support to have the purchase linked to the account you created.",
+      "content": "Your plan is attached to the email address you paid with. If you created your account with a different address, that new account has no plan on it, so the app will look empty and most tools will be locked.\n\nYou have two options:\n\n1. Sign out and register again using the exact email address you purchased with.\n2. Contact support with both addresses — the one you paid with and the one you signed up with — plus your receipt number, and we will link the purchase to the account you want to keep.\n\nDo not buy a second time. This is a linking problem, not a payment problem.",
+      "keywords": ["wrong email", "different email", "not activated", "empty account", "no plan", "link purchase"]
+    },
+    {
+      "title": "How do credits work?",
+      "category": "Credits",
+      "summary": "Each plan gives a monthly credit allowance; generating consumes credits, and the balance refreshes every month.",
+      "content": "Every plan comes with a monthly credit allowance. Generating things in the app — videos, images, scenes and so on — consumes credits from that balance.\n\nHow the balance is made up:\n\n- Plan credits: the monthly allowance from every active plan on your account.\n- Bonus credits: any extra credits added to your account manually.\n\nWhen you generate something, plan credits are used first, and bonus credits are used only once the plan credits run out.\n\nYour allowance is refreshed on a monthly cycle, based on the active plans on your account at that time. If you hold more than one plan, their credit allowances add together.\n\nIf a purchase is refunded or cancelled, that plan stops counting toward your credits and its tools are no longer included.",
+      "keywords": ["credits", "how credits work", "balance", "monthly", "allowance", "bonus credits", "reset"]
+    },
+    {
+      "title": "I ran out of credits — what do I do?",
+      "category": "Credits",
+      "summary": "Wait for the monthly refresh or add a plan; the app blocks generation with an 'Insufficient credits' message.",
+      "content": "When your balance is too low for the action you are trying to run, the app stops and tells you exactly how many credits the action needs and how many you have left.\n\nYour options:\n\n- Wait for your monthly credit refresh, which restores your plan's allowance.\n- Add or upgrade a plan — credits from multiple active plans add together.\n- If you are working inside a team workspace that uses the owner's credits, ask the workspace owner to top up.\n\nIf your balance looks wrong — for example you just purchased but the credits have not appeared — contact support with your receipt number and we will check your account.",
+      "keywords": ["out of credits", "insufficient credits", "no credits", "credit limit", "cannot generate", "402"]
+    },
+    {
+      "title": "What are daily generation limits?",
+      "category": "Credits",
+      "summary": "Some plans cap how many images or videos you can generate per day; the count resets the next day.",
+      "content": "Some plans have a daily cap on how many images or videos you can generate, on top of your monthly credit balance. When you hit it, the app tells you how many you have generated out of your daily allowance.\n\nA daily cap resets the next day — you do not lose credits, you simply continue tomorrow.\n\nNot every plan has a daily cap. When a plan's daily limit is set to zero it means there is no daily cap at all, and only your monthly credit balance applies.\n\nDaily caps by plan:\n\n- Cinema studio FE — no daily cap on images or videos.\n- CinemaStudio JV Plan — up to 200 images and 100 videos per day.\n- Master Plan — up to 500 images and 500 videos per day.",
+      "keywords": ["daily limit", "daily images", "daily videos", "limit reached", "reset tomorrow", "cap"]
+    },
+    {
+      "title": "What plans are available and what does each include?",
+      "category": "Subscription",
+      "summary": "Cinema studio FE at $37, the Master Plan at $397, and a free JV Plan; each unlocks a different set of tools and credits.",
+      "content": "Cinema Studio has these plans:\n\nCinema studio FE — $37, 2,500 credits per month. Includes Film Studio, Story Templates, My Projects, Characters, Worlds & Locations and Bonuses. No daily generation cap.\n\nMaster Plan — $397, 5,000 credits per month. Includes everything in the FE plan plus Series Maker, Cinema Box Player, Cinema Box Setting and My Videos. Adds premium access, allows you to use your own API keys, and allows up to 500 images and 500 videos per day.\n\nCinemaStudio JV Plan — free, 1,500 credits per month, with up to 200 images and 100 videos per day. Includes premium access, your own API keys, Cinema Player and Loops Studio alongside the story tools. Note that this is a review plan and the account is removed after 30 days.\n\nIf you hold more than one plan, the tools and the credit allowances combine.",
+      "keywords": ["plans", "pricing", "price", "cost", "upgrade", "master plan", "fe", "jv plan", "compare"]
+    },
+    {
+      "title": "Why is a tool locked or missing from my menu?",
+      "category": "Troubleshooting",
+      "summary": "Tools are unlocked per plan; a locked tool means your current plan does not include that feature.",
+      "content": "The left menu only shows the tools included in your plan. If something is locked or missing, your current plan does not include it.\n\nFor example, Series Maker, Cinema Box Player and Cinema Box Setting are not part of the Cinema studio FE plan — they come with the higher plans.\n\nWhat to check:\n\n1. Open your dashboard and confirm which plan is showing on your account.\n2. If you recently purchased an upgrade, refresh the page — activation can take a moment.\n3. If you purchased a plan that should include the tool and it is still locked, contact support with your receipt number.",
+      "keywords": ["locked", "missing", "cannot access", "feature not available", "greyed out", "upgrade needed"]
+    },
+    {
+      "title": "What is Film Studio?",
+      "category": "Features",
+      "summary": "Film Studio turns a prompt or brand brief into a complete cinematic story you can generate as video.",
+      "content": "Film Studio is where you build a complete cinematic story from an idea. You give it your concept or brand brief and it develops the story, then takes it through to generated video.\n\nIt is included in every Cinema Studio plan. Your characters and worlds can be reused inside it, so a story keeps the same faces and settings from scene to scene.\n\nYou will find it as 'Film Studio' in the left menu.",
+      "keywords": ["film studio", "brand story", "ai brand story", "create film", "cinematic"]
+    },
+    {
+      "title": "What is Series Maker?",
+      "category": "Features",
+      "summary": "Series Maker builds multi-episode short drama series rather than single videos.",
+      "content": "Series Maker is for multi-episode content — short drama series rather than a single standalone video. You plan the series, then build and generate its episodes.\n\nIt pairs with Cinema Box Setting, where you configure how a finished series is presented, and Cinema Box Player, where it can be watched.\n\nSeries Maker is not included in the Cinema studio FE plan; it comes with the higher plans. You will find it as 'Series Maker' in the left menu.",
+      "keywords": ["series maker", "short drama", "series", "episodes", "multi episode"]
+    },
+    {
+      "title": "What are Characters and Worlds & Locations?",
+      "category": "Features",
+      "summary": "Reusable character and setting designs that keep your scenes visually consistent across a project.",
+      "content": "Characters is where you design the people in your stories and save them so the same character looks the same in every scene and every project.\n\nWorlds & Locations does the same job for settings — the places your scenes happen in.\n\nBoth exist to solve consistency: without them, each generation invents a new face or a new room. Design once, reuse everywhere.\n\nBoth are included in every Cinema Studio plan.",
+      "keywords": ["characters", "character design", "worlds", "locations", "universe", "consistency", "same face"]
+    },
+    {
+      "title": "Where do I find my projects and generated videos?",
+      "category": "Features",
+      "summary": "My Projects holds your story projects; My Videos holds everything you have generated.",
+      "content": "My Projects lists every story project you have started, so you can reopen and continue any of them.\n\nMy Videos lists every video you have generated, ready to review or download.\n\nMy Projects is included in every plan. My Videos comes with the higher plans.\n\nIf a project or video is missing, first make sure you are signed in with the same email you created it on — work is tied to the account that made it.",
+      "keywords": ["my projects", "my videos", "generated videos", "find my work", "saved", "missing project"]
+    },
+    {
+      "title": "What are Story Templates?",
+      "category": "Features",
+      "summary": "Ready-made story structures you can start from instead of a blank page.",
+      "content": "Story Templates give you a ready-made story structure to start from, so you are not staring at a blank page. Pick a template, put your own idea and characters into it, and take it through to a finished video.\n\nStory Templates is included in every Cinema Studio plan.",
+      "keywords": ["templates", "story templates", "presets", "start from template"]
+    },
+    {
+      "title": "What is Cinema Box?",
+      "category": "Features",
+      "summary": "Cinema Box Setting configures how your finished series is presented; Cinema Box Player is where it is watched.",
+      "content": "Cinema Box is how a finished series is published and watched.\n\n- Cinema Box Setting is where you configure the presentation of your series.\n- Cinema Box Player opens the viewing experience, in a new tab.\n\nBoth come with the higher plans rather than the Cinema studio FE plan.",
+      "keywords": ["cinema box", "player", "series hub", "series studio", "watch", "publish series"]
+    },
+    {
+      "title": "Can I use my own API keys?",
+      "category": "API",
+      "summary": "Higher plans allow you to connect your own API keys; the Cinema studio FE plan does not.",
+      "content": "Some plans let you connect your own API keys, so generations run against your own provider account instead of the app's included capacity.\n\nThe Master Plan and the CinemaStudio JV Plan allow custom API keys. The Cinema studio FE plan does not.\n\nNo plan currently forces you to supply your own key — it is optional on the plans that support it.",
+      "keywords": ["api key", "own api key", "custom api", "byok", "provider"]
+    },
+    {
+      "title": "How do teams and shared credits work?",
+      "category": "Account",
+      "summary": "A workspace can run on the owner's credit balance, so members generate without needing their own credits.",
+      "content": "Cinema Studio supports team workspaces. When a workspace is set up to share credits, work done by members draws on the workspace owner's credit balance rather than each member's own.\n\nThis means:\n\n- Members can generate without holding their own plan credits.\n- If the owner's balance runs out, members see an insufficient-credits message even though nothing is wrong with their own account.\n\nIf you are a member hitting credit errors, ask your workspace owner to check their balance.",
+      "keywords": ["team", "workspace", "shared credits", "members", "invite", "collaborate", "agency"]
+    },
+    {
+      "title": "How do I reset my password?",
+      "category": "Login",
+      "summary": "Use 'Forgot password?' on the login screen to get a reset link by email.",
+      "content": "On the login screen at https://app.thecinemastudio.com, click 'Forgot password?' and enter your email address. We send a reset link to that address.\n\nIf the email does not arrive:\n\n- Check spam, promotions and junk.\n- Make sure you entered the address your account actually uses.\n- If you originally signed up with 'Continue with Google', you do not have a password on the account — sign in with Google instead.\n\nIf none of that works, contact support and we will help you regain access.",
+      "keywords": ["password", "reset password", "forgot password", "cannot sign in", "locked out"]
+    },
+    {
+      "title": "What happens if I refund or cancel?",
+      "category": "Refund",
+      "summary": "A refunded or cancelled purchase removes that plan's credits and tools from your account.",
+      "content": "When a purchase is refunded or cancelled, the plan it granted stops counting on your account. Its monthly credits are no longer added and the tools it unlocked are no longer available.\n\nIf you hold other active plans, those are unaffected — you keep whatever they include.\n\nYour account itself is not deleted, and any work you already created stays in your projects, though the tools needed to continue it may be locked.\n\nIf you believe a plan was removed in error, contact support with the receipt number.",
+      "keywords": ["refund", "cancel", "cancelled", "chargeback", "lost access", "revoked"]
+    },
+    {
+      "title": "Where can I find tutorials and help inside the app?",
+      "category": "Getting Started",
+      "summary": "The Training section holds tutorials; Community shows other creators' work; Bonuses holds extras on eligible plans.",
+      "content": "Inside the app:\n\n- Training — tutorials and walkthroughs for the tools. Available on every plan.\n- Community — see what other creators are making, for ideas and reference.\n- Bonuses — extra material included with eligible plans.\n\nIf you cannot find an answer there, raise a support ticket from your customer portal and our team will pick it up. You can follow the ticket's status from the Tickets page, including whether it has been resolved.",
+      "keywords": ["training", "tutorial", "help", "how to", "learn", "community", "bonuses", "support"]
+    },
+    {
+      "title": "How do I contact support?",
+      "category": "FAQs",
+      "summary": "Raise a ticket from the Tickets page in your customer portal, or chat with the team from Support.",
+      "content": "From your customer portal you can:\n\n- Open a ticket from the Tickets page. Choose the product, pick a category, describe the issue, and it is routed to the right person on our team. You can follow the status on the same page and see when it has been resolved.\n- Start a chat from the Support page — either with the AI assistant or directly with our team.\n\nTo help us resolve things faster, include the email address you purchased with and your receipt number when the question is about access, credits or billing.",
+      "keywords": ["contact support", "help", "ticket", "raise ticket", "talk to human", "customer service"]
+    }
+  ]
+}

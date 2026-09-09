@@ -61,6 +61,10 @@ export const portalService = {
   supportProducts: () => portalApi.get('/portal/support/products').then(unwrap),
   startSupport: (productSlug, payload) => portalApi.post(`/portal/support/${productSlug}/start`, payload).then(unwrap),
   conversations: () => portalApi.get('/portal/conversations').then(unwrap),
+  tickets: () => portalApi.get('/portal/tickets').then(unwrap),
+  ticket: (id) => portalApi.get(`/portal/tickets/${id}`).then(unwrap),
+  createTicket: (productSlug, payload) =>
+    portalApi.post(`/portal/products/${productSlug}/tickets`, payload).then(unwrap),
   notifications: () => portalApi.get('/portal/notifications').then(unwrap),
   markNotificationRead: (id) => portalApi.patch(`/portal/notifications/${id}/read`).then(unwrap),
   markAllNotificationsRead: () => portalApi.patch('/portal/notifications/read-all').then(unwrap),

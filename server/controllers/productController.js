@@ -111,6 +111,8 @@ const updateProduct = asyncHandler(async (req, res) => {
   const fields = [
     'name', 'logo', 'description', 'tagline', 'websiteUrl', 'loginUrl', 'docsUrl',
     'supportEmail', 'brandColor', 'aiWelcomeMessage', 'aiPersona', 'active',
+    // Product-page header strip.
+    'category', 'platform',
     // Membership-portal scalars.
     'purchaseUrl', 'launchUrl', 'accessMode', 'cardImage', 'cardDescription',
     'featured', 'dashboardVisibility', 'sortOrder',

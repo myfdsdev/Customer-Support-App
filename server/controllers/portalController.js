@@ -8,6 +8,8 @@ const {
   Product,
   CustomerProduct,
   Conversation,
+  Ticket,
+  TrainingVideo,
   Announcement,
   Notification,
   AnalyticsEvent,
@@ -22,7 +24,10 @@ const {
   OPEN_STATUSES,
   PAGE_STATUS,
   ISSUE_CATEGORIES,
+  TICKET_CATEGORIES,
+  TICKET_STATUS,
 } = require('../utils/constants');
+const { pickAgentForProduct } = require('../services/support/ticketAssignment');
 const { truncate } = require('../utils/text');
 
 /**
@@ -237,6 +242,18 @@ const getProductPage = asyncHandler(async (req, res) => {
     });
   }
 
+  // Tutorials for the page's video strip. The flag only says whether to show
+  // the section — the videos themselves were never sent, which is why the strip
+  // could never render even on a product that had them.
+  let tutorials = [];
+  if (page.showTutorials !== false) {
+    tutorials = await TrainingVideo.find({ productId: product._id, active: { $ne: false } })
+      .sort({ createdAt: 1 })
+      .limit(12)
+      .select('title description videoUrl thumbnailUrl duration feature')
+      .lean();
+  }
+
   // Related recommendations (product_page_related), gated by ownership.
   let related = [];
   if (page.showRelated !== false) {
@@ -264,6 +281,14 @@ const getProductPage = asyncHandler(async (req, res) => {
         brandColor: product.brandColor || '',
         description: product.description || '',
         purchaseUrl: owns ? '' : product.purchaseUrl || '',
+        // Header strip. Blank values are simply not rendered.
+        category: product.category || '',
+        platform: product.platform || '',
+        websiteUrl: product.websiteUrl || '',
+        docsUrl: product.docsUrl || '',
+        supportEmail: product.supportEmail || '',
+        status: product.active ? 'Operational' : 'Unavailable',
+        lastUpdated: product.updatedAt,
         sections: product.resolvedSections(),
         page: {
           heroTitle: page.heroTitle || product.name,
@@ -281,6 +306,15 @@ const getProductPage = asyncHandler(async (req, res) => {
           seoDescription: page.seoDescription || '',
         },
       },
+      tutorials: tutorials.map((v) => ({
+        _id: String(v._id),
+        title: v.title,
+        description: v.description || '',
+        videoUrl: v.videoUrl || '',
+        thumbnailUrl: v.thumbnailUrl || '',
+        duration: v.duration || 0,
+        feature: v.feature || '',
+      })),
       related,
     },
   });
@@ -338,6 +372,9 @@ const supportProducts = asyncHandler(async (req, res) => {
     data: {
       products: products.map((p) => productCard(new Product(p), byProductId.get(String(p._id)))),
       issueCategories: ISSUE_CATEGORIES,
+      // The ticket form picks from these, so the option list has exactly one
+      // definition and cannot drift from what the Ticket model will accept.
+      ticketCategories: TICKET_CATEGORIES,
     },
   });
 });
@@ -421,6 +458,145 @@ const listConversations = asyncHandler(async (req, res) => {
 });
 
 /* -------------------------------------------------------------------------
+ * Support tickets
+ *
+ * A customer sees their own tickets and only the customer-facing half of one.
+ * Internal agent notes (`ticket.notes`) never leave the server — they are the
+ * team's private working record, and the shape below is an allow-list rather
+ * than a delete-list so a new internal field can never leak by being forgotten.
+ * ---------------------------------------------------------------------- */
+
+/** Everything a customer is allowed to know about one of their tickets. */
+function ticketToPortalJSON(t) {
+  return {
+    _id: String(t._id),
+    ticketNumber: t.ticketNumber,
+    title: t.title,
+    description: t.description || '',
+    category: t.category,
+    priority: t.priority,
+    status: t.status,
+    // The answer to "was my problem solved?" — the agent's closing note.
+    resolution: t.resolution || '',
+    resolvedAt: t.resolvedAt || null,
+    closedAt: t.closedAt || null,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+    product: t.productId
+      ? { name: t.productId.name, slug: t.productId.slug, logo: t.productId.logo }
+      : null,
+    agent: t.assignedAgent
+      ? { name: t.assignedAgent.name, avatar: t.assignedAgent.avatar, title: t.assignedAgent.title }
+      : null,
+  };
+}
+
+/** GET /api/portal/tickets */
+const listTickets = asyncHandler(async (req, res) => {
+  const rows = await Ticket.find({ customerId: req.customer._id })
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .populate('productId', 'name slug logo')
+    .populate('assignedAgent', 'name avatar title')
+    .lean();
+
+  res.json({ success: true, data: rows.map(ticketToPortalJSON) });
+});
+
+/** GET /api/portal/tickets/:id */
+const getTicket = asyncHandler(async (req, res) => {
+  // A pasted or edited URL must 404, not 500, so reject anything that is not an
+  // object id before it reaches the cast.
+  if (!/^[a-f\d]{24}$/i.test(String(req.params.id || ''))) {
+    throw ApiError.notFound('Ticket not found');
+  }
+
+  // Scoped by customerId as well as id: a guessed id can never open somebody
+  // else's ticket.
+  const ticket = await Ticket.findOne({ _id: req.params.id, customerId: req.customer._id })
+    .populate('productId', 'name slug logo')
+    .populate('assignedAgent', 'name avatar title')
+    .lean();
+
+  if (!ticket) throw ApiError.notFound('Ticket not found');
+
+  res.json({
+    success: true,
+    data: {
+      ...ticketToPortalJSON(ticket),
+      attachments: (ticket.attachments || []).map((a) => ({
+        url: a.url,
+        name: a.name,
+        type: a.type,
+        size: a.size,
+      })),
+    },
+  });
+});
+
+/**
+ * POST /api/portal/products/:productSlug/tickets
+ *
+ * The customer's own way to raise an issue. Ownership is enforced by
+ * requireCustomerProductAccess before this runs, so a ticket can only be filed
+ * against a product the customer actually holds — there is no product id in the
+ * body that could be swapped for someone else's.
+ */
+const createTicket = asyncHandler(async (req, res) => {
+  const product = req.product; // access-checked (owner only)
+  if (req.accessMode !== 'owner') throw ApiError.forbidden('You do not have access to this product');
+
+  const title = String(req.body.title || '').trim();
+  if (!title) throw ApiError.badRequest('Please give your issue a short title');
+  if (title.length > 200) throw ApiError.badRequest('Title must be 200 characters or fewer');
+
+  const description = String(req.body.description || '').trim().slice(0, 10000);
+  const category = TICKET_CATEGORIES.includes(req.body.category) ? req.body.category : 'Other';
+
+  // Priority is deliberately NOT read from the request. Left to the customer,
+  // every ticket arrives "urgent" and the field stops meaning anything; the
+  // team sets it during triage.
+  const assignedAgent = await pickAgentForProduct(product._id);
+
+  const ticket = await Ticket.create({
+    customerId: req.customer._id,
+    productId: product._id,
+    title,
+    description,
+    category,
+    status: TICKET_STATUS.OPEN,
+    assignedAgent,
+  });
+
+  await Customer.updateOne({ _id: req.customer._id }, { $inc: { 'stats.tickets': 1 } }).catch(() => null);
+
+  AnalyticsEvent.track({
+    type: AnalyticsEvent.EVENTS.TICKET_CREATED,
+    productId: product._id,
+    customerId: req.customer._id,
+    refId: ticket._id,
+    label: ticket.category,
+  });
+
+  // The same event the admin-side create emits, so the agent inbox lights up
+  // the moment a customer files something.
+  emitter.toAgents('ticket:new', {
+    _id: String(ticket._id),
+    ticketNumber: ticket.ticketNumber,
+    title: ticket.title,
+    priority: ticket.priority,
+    status: ticket.status,
+  });
+
+  const created = await Ticket.findById(ticket._id)
+    .populate('productId', 'name slug logo')
+    .populate('assignedAgent', 'name avatar title')
+    .lean();
+
+  res.status(201).json({ success: true, data: ticketToPortalJSON(created) });
+});
+
+/* -------------------------------------------------------------------------
  * Notifications
  * ---------------------------------------------------------------------- */
 const listNotifications = asyncHandler(async (req, res) => {
@@ -501,6 +677,9 @@ module.exports = {
   supportProducts,
   startSupport,
   listConversations,
+  listTickets,
+  getTicket,
+  createTicket,
   listNotifications,
   markNotificationRead,
   markAllNotificationsRead,

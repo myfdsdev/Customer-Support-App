@@ -2,7 +2,7 @@
 
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const { Ticket, Conversation, Customer, User, AnalyticsEvent } = require('../models');
+const { Ticket, Conversation, Customer, User, Notification, AnalyticsEvent } = require('../models');
 const support = require('../services/support');
 const emitter = require('../services/socket/emitter');
 const { accessibleProductIds } = require('../middleware/auth');
@@ -14,7 +14,43 @@ const {
   PRIORITY_LIST,
   SENDER_TYPE,
   MESSAGE_TYPE,
+  NOTIFICATION_TYPES,
 } = require('../utils/constants');
+
+/**
+ * What the customer is told when their ticket moves. Phrased from their side —
+ * they care whether their problem is being worked on and whether it is solved,
+ * not what our board column is called.
+ *
+ * Statuses absent from this map produce no notification.
+ */
+const STATUS_NOTICE = {
+  [TICKET_STATUS.OPEN]: 'Your ticket has been reopened',
+  [TICKET_STATUS.IN_PROGRESS]: 'We have started working on your issue',
+  [TICKET_STATUS.WAITING_CUSTOMER]: 'We need a reply from you',
+  [TICKET_STATUS.WAITING_TEAM]: 'Your ticket is with our team',
+  [TICKET_STATUS.RESOLVED]: 'Your issue has been resolved',
+  [TICKET_STATUS.CLOSED]: 'Your ticket has been closed',
+};
+
+/**
+ * Drops a row in the customer's portal notification feed.
+ *
+ * Best-effort on purpose: a notification that fails to write must never fail
+ * the ticket action that produced it, so every caller swallows the error.
+ */
+function notifyCustomer(ticket, title) {
+  if (!ticket.customerId || !title) return Promise.resolve(null);
+  return Notification.create({
+    customerId: ticket.customerId,
+    type: NOTIFICATION_TYPES.TICKET_UPDATE,
+    title,
+    body: `${ticket.ticketNumber} · ${ticket.title}`,
+    link: `/portal/tickets/${ticket._id}`,
+    productId: ticket.productId || null,
+    refId: ticket._id,
+  }).catch(() => null);
+}
 
 /** GET /api/tickets */
 const listTickets = asyncHandler(async (req, res) => {
@@ -130,6 +166,9 @@ const createTicket = asyncHandler(async (req, res) => {
     status: ticket.status,
   });
 
+  // The agent-side socket above only reaches staff. This is the customer's copy.
+  await notifyCustomer(ticket, 'A support ticket was opened for you');
+
   res.status(201).json({ success: true, data: ticket });
 });
 
@@ -139,6 +178,10 @@ const updateTicket = asyncHandler(async (req, res) => {
   if (!ticket) throw ApiError.notFound('Ticket not found');
 
   const { title, description, category, priority, status, assignedTeam, assignedAgent, resolution } = req.body;
+
+  // Captured before the mutations below so the customer is only notified on a
+  // real state change, not on every save.
+  const previousStatus = ticket.status;
 
   if (title !== undefined) ticket.title = title;
   if (description !== undefined) ticket.description = description;
@@ -161,6 +204,13 @@ const updateTicket = asyncHandler(async (req, res) => {
 
   await ticket.save();
   emitter.toAgents('ticket:updated', { _id: String(ticket._id), status: ticket.status, priority: ticket.priority });
+
+  // Only a status change is the customer's business. Re-assignment, a priority
+  // bump or a team hand-off is internal churn and stays silent.
+  if (ticket.status !== previousStatus) {
+    await notifyCustomer(ticket, STATUS_NOTICE[ticket.status]);
+  }
+
   res.json({ success: true, data: ticket });
 });
 
