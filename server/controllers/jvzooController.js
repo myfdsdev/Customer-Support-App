@@ -7,6 +7,7 @@ const logger = require('../utils/logger');
 const { hashIp } = require('../utils/tokens');
 const jvzooService = require('../services/integrations/jvzooService');
 const verifier = require('../services/integrations/jvzooVerifier');
+const jvzooForwarder = require('../services/integrations/jvzooForwarder');
 const entitlements = require('../services/integrations/entitlementService');
 const { PaymentEvent, Product, AuditLog, CustomerProduct } = require('../models');
 const {
@@ -92,6 +93,11 @@ const receiveJvzooIpn = asyncHandler(async (req, res) => {
   } else if (result) {
     logger.info(`JVZoo IPN ${normalized.eventId}: ${result.outcome}${result.reason ? ` (${result.reason})` : ''}`);
   }
+
+  // Relay to the vendor app, if one is configured. Deliberately NOT awaited:
+  // JVZoo retries on anything but a prompt 200, so the acknowledgement below
+  // must not wait on a third party. The forwarder never throws.
+  jvzooForwarder.forward(body, verification).catch(() => null);
 
   return res.status(200).type('text/plain').send(jvzooService.ackBody());
 });

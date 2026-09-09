@@ -20,7 +20,16 @@ import axios from 'axios';
  * from the server's own not-found handler. Rather than depend on everyone
  * remembering the suffix, both forms are accepted and normalised here.
  *
+ * A bare hostname is also accepted. Without a scheme axios treats the value as
+ * a RELATIVE path, so every call silently goes to the frontend's own origin and
+ * comes back as the SPA's index.html with a 200 — which surfaces far away as
+ * "Cannot read properties of undefined". Adding the scheme here turns a very
+ * easy dashboard typo into a working config instead of a confusing bug.
+ *
  *   ""                              -> "/api"          (same origin)
+ *   "/api"                          -> unchanged       (relative, on purpose)
+ *   "api.example.com"               -> "https://api.example.com/api"
+ *   "localhost:5000"                -> "http://localhost:5000/api"
  *   "https://api.example.com"       -> "https://api.example.com/api"
  *   "https://api.example.com/"      -> "https://api.example.com/api"
  *   "https://api.example.com/api"   -> unchanged
@@ -30,8 +39,17 @@ export function resolveApiBase(raw) {
   const value = String(raw || '').trim();
   if (!value) return '/api';
 
-  const withoutTrailingSlash = value.replace(/\/+$/, '');
+  let withoutTrailingSlash = value.replace(/\/+$/, '');
   if (!withoutTrailingSlash) return '/api';
+
+  // A leading "/" or "//" is a deliberate relative / protocol-relative base;
+  // anything else without a scheme is a hostname someone forgot to prefix.
+  const isRelative = withoutTrailingSlash.startsWith('/');
+  const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(withoutTrailingSlash);
+  if (!isRelative && !hasScheme) {
+    const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(:|$)/i.test(withoutTrailingSlash);
+    withoutTrailingSlash = `${isLocal ? 'http' : 'https'}://${withoutTrailingSlash}`;
+  }
 
   // Already points at an /api mount (or a custom one) — leave it alone.
   if (/\/api(\/.*)?$/i.test(withoutTrailingSlash)) return withoutTrailingSlash;

@@ -69,6 +69,17 @@ const env = {
      * returns BLOCKED and no event can grant access — see jvzooVerifier.js.
      */
     verificationConfirmed: bool(process.env.JVZOO_VERIFICATION_CONFIRMED, false),
+    /**
+     * Optional second system that should also receive every accepted IPN.
+     *
+     * JVZoo posts to ONE URL per product, but two systems need the event: this
+     * platform (CRM + portal entitlement) and the vendor app that activates the
+     * customer's account. Point JVZoo here and set this to the vendor app's own
+     * IPN endpoint. Empty disables relaying entirely.
+     */
+    forwardUrl: process.env.JVZOO_FORWARD_URL || '',
+    /** How long to wait on the downstream before giving up, in ms. */
+    forwardTimeoutMs: num(process.env.JVZOO_FORWARD_TIMEOUT_MS, 10000),
     get configured() {
       return Boolean(process.env.JVZOO_IPN_SECRET);
     },
