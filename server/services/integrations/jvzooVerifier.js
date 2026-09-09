@@ -12,35 +12,44 @@ const { VERIFICATION_STATUS } = require('../../utils/constants');
  * nothing in the controller or entitlement layer does.
  *
  * ───────────────────────────────────────────────────────────────────────────
- *  VERIFICATION STATUS: **UNCONFIRMED / PRODUCTION-BLOCKED**
+ *  VERIFICATION STATUS: **CONFIRMED against real JVZoo notifications**
  * ───────────────────────────────────────────────────────────────────────────
- * No official current JVZoo IPN documentation or a real sanitized test
- * notification was supplied with this project. The algorithm below is JVZoo's
- * long-published `cverify` scheme:
+ * Validated on 2026-09-09 against three genuine Cinema Studio sale IPNs, using
+ * scripts/checkJvzooSignature.js. All three matched this construction:
  *
  *   1. Take every POSTed field EXCEPT `cverify`.
  *   2. Sort the field NAMES ascending (case-sensitive).
- *   3. Concatenate the VALUES in that order.
+ *   3. Concatenate each VALUE in that order, FOLLOWED BY a "|" separator —
+ *      including a trailing one after the last value.
  *   4. Append the IPN secret key.
  *   5. SHA-1, uppercase, take the first 8 characters.
  *   6. Constant-time compare against the submitted `cverify`.
  *
- * Two historical concatenation conventions exist in JVZoo's own samples
- * (secret appended once at the end, vs. after every value). Both are computed
- * and either match verifies — the one place ambiguity is tolerated, and it is
- * logged. This MUST be confirmed against a real JVZoo test IPN before the
- * webhook is enabled in production. Until then:
+ * i.e.  sha1("value1|value2|…|valueN|" + secret)
  *
- *   - `verify()` returns BLOCKED when the scheme is unconfirmed OR the secret
- *     is missing, and the caller grants NOTHING.
- *   - Set `JVZOO_VERIFICATION_CONFIRMED=true` (see .env.example) only AFTER you
- *     have validated a real test IPN end to end. That flips BLOCKED → real
- *     verify/reject behaviour.
+ * The pipe separators are the whole ballgame. An earlier version concatenated
+ * the values with nothing between them, which is a plausible reading of the
+ * same documentation and fails EVERY real notification — silently, because a
+ * failed signature looks identical to an attack.
+ *
+ * The production gate remains, because a confirmed algorithm is not the same as
+ * a correctly configured deployment (wrong secret, wrong account):
+ *
+ *   - `verify()` returns BLOCKED when JVZOO_VERIFICATION_CONFIRMED is not set,
+ *     and the caller grants NOTHING.
+ *   - Before flipping it on for a new deployment, re-run
+ *     scripts/checkJvzooSignature.js against a real captured IPN. It compares
+ *     offline, so nothing has to be pointed at live traffic to find out.
  */
 
 const SIGNATURE_FIELD = 'cverify';
 
-/** Returns both candidate signatures for the documented conventions. */
+/**
+ * The confirmed signature for a payload.
+ *
+ * Returns an ARRAY so callers stay unchanged from when two conventions were in
+ * play; there is now exactly one, and any future ambiguity has somewhere to go.
+ */
 function computeSignatures(fields, secret) {
   const names = Object.keys(fields)
     .filter((k) => k !== SIGNATURE_FIELD)
@@ -48,11 +57,12 @@ function computeSignatures(fields, secret) {
 
   const values = names.map((n) => (fields[n] === undefined || fields[n] === null ? '' : String(fields[n])));
 
-  const joinedOnce = values.join('') + secret; // secret appended once
-  const joinedEach = values.map((v) => v + secret).join(''); // secret after each value
+  // Every value carries its own trailing "|", so the string ends with one
+  // before the secret is appended. Verified against real notifications.
+  const payload = values.map((v) => `${v}|`).join('') + secret;
 
   const sig = (input) => crypto.createHash('sha1').update(input, 'utf8').digest('hex').toUpperCase().slice(0, 8);
-  return [sig(joinedOnce), sig(joinedEach)];
+  return [sig(payload)];
 }
 
 function timingSafeEqual(a, b) {

@@ -31,6 +31,25 @@ const { VERIFICATION_STATUS } = require('../../utils/constants');
 /** Verification states that must never be passed on. */
 const NEVER_FORWARD = new Set([VERIFICATION_STATUS.FAILED]);
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+/**
+ * A test run must never reach a real vendor app.
+ *
+ * The smoke suites load server/.env, so a configured production forward URL is
+ * live inside them — one mock IPN carrying a real product id would create a
+ * real transaction and email a real customer. Tests may still relay, but only
+ * to a capture server on this machine.
+ */
+function blockedForTest(url) {
+  if (process.env.NODE_ENV !== 'test') return false;
+  try {
+    return !LOCAL_HOSTS.has(new URL(url).hostname);
+  } catch {
+    return true; // unparseable in a test run: refuse rather than guess
+  }
+}
+
 function isEnabled() {
   return Boolean(env.jvzoo.forwardUrl);
 }
@@ -43,6 +62,11 @@ function isEnabled() {
 async function forward(body, verification) {
   const url = env.jvzoo.forwardUrl;
   if (!url) return { forwarded: false, reason: 'disabled' };
+
+  if (blockedForTest(url)) {
+    logger.warn(`JVZoo relay suppressed: NODE_ENV=test must not post to a remote downstream (${url}).`);
+    return { forwarded: false, reason: 'blocked_in_test' };
+  }
 
   if (NEVER_FORWARD.has(verification?.status)) {
     logger.warn(`JVZoo relay skipped: notification failed signature verification (${verification.reason || ''}).`);
