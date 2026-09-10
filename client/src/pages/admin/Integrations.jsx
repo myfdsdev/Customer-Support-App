@@ -373,6 +373,9 @@ export default function Integrations() {
               <Badge tone={status.jvzoo.webhookEnabled ? 'green' : 'gray'}>Webhook {status.jvzoo.webhookEnabled ? 'on' : 'off'}</Badge>
               <Badge tone={status.jvzoo.secretConfigured ? 'green' : 'amber'}>{status.jvzoo.secretConfigured ? 'Secret set' : 'No secret'}</Badge>
               <Badge tone={status.jvzoo.verificationConfirmed ? 'green' : 'amber'}>{status.jvzoo.verificationConfirmed ? 'Verified scheme' : 'Verification blocked'}</Badge>
+              <Badge tone={status.jvzoo.forwarding?.enabled ? 'green' : 'amber'}>
+                {status.jvzoo.forwarding?.enabled ? `Relay → ${status.jvzoo.forwarding.host}` : 'Relay off'}
+              </Badge>
             </div>
           </div>
         )}
@@ -382,6 +385,17 @@ export default function Integrations() {
             The signature scheme has not been validated against a real JVZoo test IPN. While this is the case the webhook
             stores events for audit but grants no access. Set <code>JVZOO_VERIFICATION_CONFIRMED=true</code> only after you
             have validated a real test notification end to end.
+          </Alert>
+        )}
+
+        {/* The one misconfiguration that fails silently somewhere else: JVZoo only
+            posts to one URL, so pointing it here with the relay off means the
+            vendor app simply stops hearing about sales. */}
+        {status && status.jvzoo.forwarding && !status.jvzoo.forwarding.enabled && (
+          <Alert tone="warning" className="mb-5" title="Relay to the vendor app is off">
+            JVZoo sends each notification to a single URL. If your JVZoo products point at the IPN URL above while
+            <code> JVZOO_FORWARD_URL</code> is empty, the app that activates customer accounts will stop receiving sales.
+            Set it before changing the URL in JVZoo.
           </Alert>
         )}
 

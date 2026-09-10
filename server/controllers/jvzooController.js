@@ -318,6 +318,15 @@ const integrationStatus = asyncHandler(async (req, res) => {
     CustomerProduct.countDocuments({ verified: true, purchaseStatus: 'active' }),
   ]);
 
+  // Only the host is exposed: the full forward URL carries the vendor app's id,
+  // and the host alone is enough to see the relay is pointed where it should be.
+  let forwardHost = '';
+  try {
+    forwardHost = env.jvzoo.forwardUrl ? new URL(env.jvzoo.forwardUrl).host : '';
+  } catch {
+    forwardHost = '(unparseable URL)';
+  }
+
   res.json({
     success: true,
     data: {
@@ -328,6 +337,13 @@ const integrationStatus = asyncHandler(async (req, res) => {
         // Production is only truly live when all three are true.
         productionReady: env.jvzoo.webhookEnabled && verifier.isConfigured() && verifier.isConfirmed(),
         ipnUrl: ipnUrl(req),
+        // Not part of productionReady — relaying is optional. But if JVZoo is
+        // pointed here while this is off, the vendor app stops hearing about
+        // sales, so it has to be visible before anyone flips the JVZoo URL.
+        forwarding: {
+          enabled: jvzooForwarder.isEnabled(),
+          host: forwardHost,
+        },
       },
       mappedProducts,
       activeEntitlements,
