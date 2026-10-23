@@ -9,6 +9,7 @@ const jvzooService = require('../services/integrations/jvzooService');
 const verifier = require('../services/integrations/jvzooVerifier');
 const jvzooForwarder = require('../services/integrations/jvzooForwarder');
 const entitlements = require('../services/integrations/entitlementService');
+const base44Sync = require('../services/integrations/base44IpnSync');
 const { PaymentEvent, Product, AuditLog, CustomerProduct } = require('../models');
 const {
   PAYMENT_PROVIDERS,
@@ -351,7 +352,32 @@ const integrationStatus = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * POST /api/integrations/jvzoo/sync-base44   body: { dryRun?: boolean, max?: number }
+ *
+ * Pulls the JvzooTransaction records stored in the Base44 app and imports them
+ * through the same verify -> ingest path as a live IPN. Safe to repeat.
+ */
+const syncBase44 = asyncHandler(async (req, res) => {
+  if (!env.base44.configured) {
+    throw ApiError.badRequest('Base44 sync is not configured: set BASE44_APP_ID and BASE44_API_KEY on the server.');
+  }
+  const dryRun = req.body?.dryRun === true;
+  const max = Number(req.body?.max) > 0 ? Number(req.body.max) : undefined;
+
+  const { results, ...totals } = await base44Sync.syncFromBase44({ dryRun, max });
+
+  await AuditLog.record({
+    actorId: req.user._id,
+    action: dryRun ? 'jvzoo.base44_sync_preview' : 'jvzoo.base44_sync',
+    meta: totals,
+  });
+
+  res.json({ success: true, data: { ...totals, dryRun, results: results.slice(0, 200) } });
+});
+
 module.exports = {
+  syncBase44,
   receiveJvzooIpn,
   listEvents,
   getEvent,

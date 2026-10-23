@@ -42,5 +42,6 @@ router.post('/jvzoo/events/reprocess-pending', requireIntegrations, jvzoo.reproc
 router.post('/jvzoo/events/:id/reprocess', requireIntegrations, jvzoo.reprocessEvent);
 router.post('/jvzoo/events/:id/assign-mapping', requireIntegrations, jvzoo.assignMapping);
 router.post('/jvzoo/import', requireIntegrations, upload.single('file'), csvImport.importCsv);
+router.post('/jvzoo/sync-base44', requireIntegrations, jvzoo.syncBase44);
 
 module.exports = router;
