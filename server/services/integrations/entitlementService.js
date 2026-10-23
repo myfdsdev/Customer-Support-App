@@ -262,7 +262,7 @@ function emitAccessUpdated(customerId, productId, purchaseStatus) {
  *
  * @returns {{ duplicate, paymentEvent, result? }}
  */
-async function ingestEvent({ normalized, verification, redactedPayload, payloadHash, requestMeta }) {
+async function ingestEvent({ normalized, verification, redactedPayload, payloadHash, requestMeta, receivedAt }) {
   let paymentEvent;
   try {
     paymentEvent = await PaymentEvent.create({
@@ -284,7 +284,8 @@ async function ingestEvent({ normalized, verification, redactedPayload, payloadH
       redactedPayload,
       requestMeta,
       retryCount: 0,
-      receivedAt: new Date(),
+      // Backfilled events (e.g. the Base44 sync) pass the original purchase time.
+      receivedAt: receivedAt || new Date(),
     });
   } catch (err) {
     if (err.code === 11000) {
