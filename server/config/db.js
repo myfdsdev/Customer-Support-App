@@ -1,10 +1,18 @@
 'use strict';
 
+const dns = require('dns');
 const mongoose = require('mongoose');
 const env = require('./env');
 const logger = require('../utils/logger');
 
 mongoose.set('strictQuery', true);
+
+// Node on some Windows machines only sees a loopback resolver (127.0.0.1) that
+// refuses SRV queries, so `mongodb+srv://` URIs fail with querySrv ECONNREFUSED.
+// Fall back to public resolvers in that case.
+if (dns.getServers().every((s) => s === '127.0.0.1' || s === '::1')) {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+}
 
 let connected = false;
 
