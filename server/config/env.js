@@ -86,6 +86,26 @@ const env = {
   },
 
   /**
+   * Base44 IPN sync.
+   *
+   * Pulls the JvzooTransaction records a Base44 app has stored and runs each
+   * one's raw IPN through the same verify -> ingest path as a live IPN, so a
+   * record only grants access when its JVZoo signature checks out. The API key
+   * comes from the Base44 app's settings (API tab) and never reaches the
+   * browser. `intervalMinutes` of 0 means sync only runs on demand.
+   */
+  base44: {
+    apiUrl: (process.env.BASE44_API_URL || 'https://app.base44.com').replace(/\/+$/, ''),
+    appId: process.env.BASE44_APP_ID || '',
+    apiKey: process.env.BASE44_API_KEY || '',
+    entity: process.env.BASE44_IPN_ENTITY || 'JvzooTransaction',
+    intervalMinutes: num(process.env.BASE44_SYNC_INTERVAL_MINUTES, 0),
+    get configured() {
+      return Boolean(process.env.BASE44_APP_ID && process.env.BASE44_API_KEY);
+    },
+  },
+
+  /**
    * Transactional email (Resend).
    *
    * With no RESEND_API_KEY the mail service is disabled and simply logs what it
