@@ -8,6 +8,7 @@ const app = require('./app');
 const { initSockets } = require('./sockets');
 const gemini = require('./services/gemini');
 const mail = require('./services/mail');
+const base44Sync = require('./services/integrations/base44IpnSync');
 
 async function start() {
   await connectDB();
@@ -28,6 +29,7 @@ async function start() {
     } else {
       logger.warn('RESEND_API_KEY/MAIL_FROM not set — transactional emails will be logged, not sent.');
     }
+    base44Sync.startScheduler();
   });
 
   const shutdown = async (signal) => {
