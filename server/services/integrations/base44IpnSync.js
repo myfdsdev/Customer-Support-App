@@ -4,7 +4,7 @@ const env = require('../../config/env');
 const logger = require('../../utils/logger');
 const jvzooService = require('./jvzooService');
 const entitlements = require('./entitlementService');
-const { VERIFICATION_STATUS } = require('../../utils/constants');
+const { PaymentEvent } = require('../../models');
 
 /**
  * Imports the JVZoo IPNs a Base44 app has stored (its `JvzooTransaction`
@@ -69,10 +69,24 @@ function purchaseTime(raw, record) {
  * each record is only verified and normalized, so you can see what a real run
  * would do first.
  *
- * @returns {{ total, imported, duplicates, granted, unverified, skipped, results }}
+ * @returns {{ total, imported, duplicates, granted, revoked, pendingMapping, unverified, skipped, results }}
  */
 async function importRecords(records, { dryRun = false } = {}) {
-  const summary = { total: records.length, imported: 0, duplicates: 0, granted: 0, unverified: 0, skipped: 0, results: [] };
+  const summary = {
+    total: records.length,
+    imported: 0,
+    duplicates: 0,
+    granted: 0,
+    revoked: 0,
+    pendingMapping: 0,
+    unverified: 0,
+    skipped: 0,
+    results: [],
+  };
+
+  // The duplicate guard is the unique index on PaymentEvent; make sure it is
+  // built before inserting, or a fresh database would accept repeats.
+  if (!dryRun) await PaymentEvent.init();
 
   for (const record of records) {
     const raw = record.raw_ipn_data && typeof record.raw_ipn_data === 'object' ? record.raw_ipn_data : null;
@@ -116,9 +130,9 @@ async function importRecords(records, { dryRun = false } = {}) {
       continue;
     }
     summary.imported += 1;
-    if (verification.status === VERIFICATION_STATUS.VERIFIED && result && result.outcome !== 'failed') {
-      summary.granted += 1;
-    }
+    if (result && result.outcome === 'granted') summary.granted += 1;
+    if (result && result.outcome === 'revoked') summary.revoked += 1;
+    if (result && result.outcome === 'pending_mapping') summary.pendingMapping += 1;
     summary.results.push({ ...row, outcome: result ? result.outcome : 'stored_unverified', reason: result && result.reason });
   }
 
@@ -131,7 +145,8 @@ async function syncFromBase44({ dryRun = false, max } = {}) {
   const summary = await importRecords(records, { dryRun });
   logger.info(
     `Base44 IPN sync${dryRun ? ' (dry run)' : ''}: ${summary.total} records, ${summary.imported} imported, ` +
-      `${summary.duplicates} already present, ${summary.unverified} unverified, ${summary.skipped} skipped.`
+      `${summary.duplicates} already present, ${summary.granted} granted, ${summary.pendingMapping} awaiting product mapping, ` +
+      `${summary.unverified} unverified, ${summary.skipped} skipped.`
   );
   return summary;
 }
