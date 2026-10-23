@@ -8,6 +8,12 @@
       "port": 5173
     },
     {
+      "name": "server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "server"],
+      "port": 5000
+    },
+    {
       "name": "portal-demo-api",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:portal-demo", "--prefix", "server"],
