@@ -91,8 +91,8 @@ const env = {
    * Pulls the JvzooTransaction records a Base44 app has stored and runs each
    * one's raw IPN through the same verify -> ingest path as a live IPN, so a
    * record only grants access when its JVZoo signature checks out. The API key
-   * comes from the Base44 app's settings (API tab) and never reaches the
-   * browser. `intervalMinutes` of 0 means sync only runs on demand.
+   * is a Base44 personal access token, sent as a Bearer token, and never
+   * reaches the browser. `intervalMinutes` of 0 means sync only runs on demand.
    */
   base44: {
     apiUrl: (process.env.BASE44_API_URL || 'https://app.base44.com').replace(/\/+$/, ''),

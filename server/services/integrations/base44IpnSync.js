@@ -31,7 +31,8 @@ async function fetchPage({ skip, limit }) {
   url.searchParams.set('skip', String(skip));
 
   const res = await fetch(url, {
-    headers: { api_key: apiKey, 'Content-Type': 'application/json' },
+    // Base44 personal access tokens are only accepted as a Bearer token.
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     signal: AbortSignal.timeout(30000),
   });
   if (!res.ok) {
