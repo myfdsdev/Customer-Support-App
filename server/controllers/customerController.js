@@ -10,7 +10,9 @@ const {
   Conversation,
   Ticket,
   Product,
+  AuditLog,
 } = require('../models');
+const { hashIp } = require('../utils/tokens');
 const presence = require('../services/support/presenceService');
 const emitter = require('../services/socket/emitter');
 
@@ -186,12 +188,39 @@ const upsertCustomerProduct = asyncHandler(async (req, res) => {
     { new: true, upsert: true, setDefaultsOnInsert: true }
   ).populate('productId', 'name slug logo');
 
+  await AuditLog.record({
+    actorId: req.user._id,
+    actorName: req.user.name,
+    actorRole: req.user.role,
+    action: 'customer.product.grant',
+    targetType: 'customer',
+    targetId: customer._id,
+    summary: `Set ${product.name} access for ${customer.email || customer._id}`,
+    meta: { productId: String(product._id), plan: link.plan || '', verified: link.verified },
+    ipHash: hashIp(req.ip),
+  });
+
   res.json({ success: true, data: link });
 });
 
 /** DELETE /api/customers/:id/products/:productId */
 const removeCustomerProduct = asyncHandler(async (req, res) => {
-  await CustomerProduct.deleteOne({ customerId: req.params.id, productId: req.params.productId });
+  const { deletedCount } = await CustomerProduct.deleteOne({ customerId: req.params.id, productId: req.params.productId });
+
+  if (deletedCount) {
+    await AuditLog.record({
+      actorId: req.user._id,
+      actorName: req.user.name,
+      actorRole: req.user.role,
+      action: 'customer.product.remove',
+      targetType: 'customer',
+      targetId: req.params.id,
+      summary: `Removed product ${req.params.productId} from customer ${req.params.id}`,
+      meta: { productId: req.params.productId },
+      ipHash: hashIp(req.ip),
+    });
+  }
+
   res.json({ success: true, message: 'Product link removed' });
 });
 
