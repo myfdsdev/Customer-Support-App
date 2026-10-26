@@ -52,7 +52,7 @@ export function PortalAuthProvider({ children }) {
 
   const register = useCallback(async (payload) => {
     const data = await portalAuthService.register(payload);
-    if (data.requiresVerification) return { requiresVerification: true, email: data.email };
+    if (data.requiresVerification) return { requiresVerification: true, email: data.email, message: data.message };
     if (data.token) setPortalToken(data.token);
     setCustomer(data.customer);
     await refresh();

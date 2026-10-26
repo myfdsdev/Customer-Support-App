@@ -29,7 +29,7 @@ export default function Register() {
         password: form.password,
       });
       if (result.requiresVerification) {
-        setNotice(`We sent a verification link to ${result.email}. Verify your email, then sign in.`);
+        setNotice(result.message || `We sent a verification link to ${result.email}. Verify your email, then sign in.`);
         return;
       }
       navigate('/portal/dashboard', { replace: true });
