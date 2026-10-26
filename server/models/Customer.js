@@ -20,6 +20,13 @@ const customerSchema = new mongoose.Schema(
 
     presenceStatus: { type: String, enum: Object.values(PRESENCE), default: PRESENCE.OFFLINE, index: true },
 
+    /**
+     * Email a chat visitor typed in. Unverified, so it is shown to agents but
+     * never used to match purchases, merge records or sign in — `email` is
+     * only ever set from a trusted source (payment, import, portal, staff).
+     */
+    contactEmail: { type: String, default: '', lowercase: true, trim: true },
+
     tags: { type: [String], default: [], index: true },
     country: { type: String, default: '' },
     timezone: { type: String, default: '' },
