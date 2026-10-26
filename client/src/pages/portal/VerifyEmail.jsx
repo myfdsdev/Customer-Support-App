@@ -40,7 +40,7 @@ export default function VerifyEmail() {
     >
       {error ? (
         <Alert tone="error">
-          {error} If you already verified, just sign in. Otherwise register again to get a new link.
+          {error.replace(/\.?$/, '.')} If you already verified, just sign in. Otherwise register again to get a new link.
         </Alert>
       ) : (
         <p className="text-sm text-ink-500">One moment while we confirm your address.</p>
