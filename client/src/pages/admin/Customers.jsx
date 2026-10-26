@@ -104,7 +104,7 @@ export default function Customers() {
                           <Avatar name={c.name || c.email || 'Anonymous'} size="sm" />
                           <span className="min-w-0">
                             <span className="block truncate font-medium text-ink-900">{c.name || 'Anonymous visitor'}</span>
-                            <span className="block truncate text-xs text-ink-500">{c.email || 'No email captured'}</span>
+                            <span className="block truncate text-xs text-ink-500">{c.email || (c.contactEmail ? `${c.contactEmail} (unverified)` : 'No email captured')}</span>
                           </span>
                         </Link>
                       </td>

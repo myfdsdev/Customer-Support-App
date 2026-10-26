@@ -102,7 +102,7 @@ export default function CustomerDetails() {
 
   return (
     <div>
-      <PageHeader title={customer.name || 'Anonymous visitor'} description={customer.email || 'No email captured'}>
+      <PageHeader title={customer.name || 'Anonymous visitor'} description={customer.email || (customer.contactEmail ? `${customer.contactEmail} (given in chat, unverified)` : 'No email captured')}>
         <Link to="/admin/customers" className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800">
           <ArrowLeft className="h-4 w-4" /> All customers
         </Link>

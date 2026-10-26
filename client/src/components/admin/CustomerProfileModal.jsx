@@ -111,6 +111,9 @@ export default function CustomerProfileModal({ customerId, open, onClose }) {
           <Section title="Details">
             <div className="grid gap-x-6 sm:grid-cols-2">
               <Row icon={Mail} label="Email" value={customer.email} />
+              {customer.contactEmail && customer.contactEmail !== customer.email && (
+                <Row icon={Mail} label="Email given in chat (unverified)" value={customer.contactEmail} />
+              )}
               <Row icon={Phone} label="Phone" value={customer.phone} />
               <Row icon={Clock} label="First seen" value={customer.firstSeenAt ? fullTime(customer.firstSeenAt) : null} />
               <Row icon={Clock} label="Last contact" value={customer.lastContactAt ? timeAgo(customer.lastContactAt) : null} />
