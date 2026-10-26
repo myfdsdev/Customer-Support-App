@@ -20,6 +20,7 @@ import PortalLogin from '../pages/portal/Login';
 import PortalRegister from '../pages/portal/Register';
 import PortalForgotPassword from '../pages/portal/ForgotPassword';
 import PortalResetPassword from '../pages/portal/ResetPassword';
+import PortalVerifyEmail from '../pages/portal/VerifyEmail';
 import CustomerDashboard from '../pages/portal/Dashboard';
 import PortalProducts from '../pages/portal/Products';
 import PortalProductDetail from '../pages/portal/ProductDetail';
@@ -155,6 +156,7 @@ export default function AppRoutes() {
       <Route path="/register" element={<PortalPublicOnly><PortalRegister /></PortalPublicOnly>} />
       <Route path="/forgot-password" element={<PortalPublicOnly><PortalForgotPassword /></PortalPublicOnly>} />
       <Route path="/reset-password/:token" element={<PortalResetPassword />} />
+      <Route path="/verify-email/:token" element={<PortalVerifyEmail />} />
 
       <Route
         path="/portal"
