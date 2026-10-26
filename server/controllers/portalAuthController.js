@@ -67,11 +67,28 @@ const register = asyncHandler(async (req, res) => {
     throw ApiError.conflict('An account already exists for this email. Try signing in or resetting your password.');
   }
 
-  if (!customer) {
-    customer = new Customer({ email, name, status: 'active', verifiedSource: 'portal_registration' });
-  } else if (name && !customer.name) {
-    customer.name = name;
+  // An existing record without a portal login (a JVZoo/CSV buyer, or a chat
+  // visitor) may already own paid products. Typing its email proves nothing,
+  // so never attach this password to it: email a set-password link instead and
+  // let the inbox owner finish through the reset flow.
+  if (customer) {
+    const raw = newOpaqueToken();
+    customer.passwordResetTokenHash = hashOpaqueToken(raw);
+    customer.passwordResetExpiresAt = new Date(Date.now() + env.portal.resetTokenMinutes * 60000);
+    if (name && !customer.name) customer.name = name;
+    await customer.save();
+    mail.sendPasswordResetEmail(customer, resetUrl(raw)).catch(() => {});
+    return res.status(202).json({
+      success: true,
+      data: {
+        requiresVerification: true,
+        email: customer.email,
+        message: `We found purchases for ${customer.email}. We sent a link there to set your password.`,
+      },
+    });
   }
+
+  customer = new Customer({ email, name, status: 'active', verifiedSource: 'portal_registration' });
 
   await customer.setPassword(password);
 
