@@ -133,7 +133,7 @@ const startSession = asyncHandler(async (req, res) => {
       customer: {
         _id: customer._id,
         name: customer.name || '',
-        email: customer.email || '',
+        email: customer.email || customer.contactEmail || '',
         phone: customer.phone || '',
       },
       conversationId: openConversation ? String(openConversation._id) : null,
@@ -169,31 +169,11 @@ const identify = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(customerId);
   if (!customer) throw ApiError.notFound('Customer not found');
 
-  // If this email already belongs to a known customer, merge into that record
-  // so the agent sees one history instead of two half-profiles.
-  if (email) {
-    const existing = await Customer.findOne({ email: String(email).toLowerCase(), _id: { $ne: customer._id } });
-    if (existing) {
-      existing.anonymousIds = [...new Set([...existing.anonymousIds, ...customer.anonymousIds])];
-      if (name) existing.name = existing.name || name;
-      if (phone) existing.phone = existing.phone || phone;
-      existing.lastSeenAt = new Date();
-      await existing.save();
-
-      await Promise.all([
-        Conversation.updateMany({ customerId: customer._id }, { $set: { customerId: existing._id } }),
-        CustomerSession.updateMany({ customerId: customer._id }, { $set: { customerId: existing._id } }),
-        Customer.deleteOne({ _id: customer._id }),
-      ]);
-
-      emitter.toAgents('customer:updated', { customerId: String(existing._id) });
-      return res.json({
-        success: true,
-        data: { _id: existing._id, name: existing.name, email: existing.email, phone: existing.phone, merged: true },
-      });
-    }
-    customer.email = String(email).toLowerCase();
-  }
+  // An email typed into the chat is unverified: anyone can type anyone's
+  // address. It is kept as contact info only. Merging into the record that owns
+  // it, or setting it as `email`, would hand the visitor that customer's
+  // history and purchases (or attach future purchases to the visitor).
+  if (email) customer.contactEmail = String(email).toLowerCase().trim();
 
   if (name) customer.name = name;
   if (phone) customer.phone = phone;
@@ -203,7 +183,13 @@ const identify = asyncHandler(async (req, res) => {
   emitter.toAgents('customer:updated', { customerId: String(customer._id) });
   return res.json({
     success: true,
-    data: { _id: customer._id, name: customer.name, email: customer.email, phone: customer.phone, merged: false },
+    data: {
+      _id: customer._id,
+      name: customer.name,
+      email: customer.email || customer.contactEmail,
+      phone: customer.phone,
+      merged: false,
+    },
   });
 });
 
